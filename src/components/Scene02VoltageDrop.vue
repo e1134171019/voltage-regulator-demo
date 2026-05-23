@@ -61,10 +61,10 @@ const voltagePath = [
 
 .timeline-card,
 .drop-card {
-  border: 1px solid rgba(194, 65, 12, 0.16);
+  border: 1px solid rgba(194, 65, 12, 0.18);
   border-radius: 22px;
-  background: linear-gradient(180deg, #fffaf2, #eef4ff);
-  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+  background: linear-gradient(180deg, #fff8ee, #eef4ff);
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.1);
   padding: 18px;
 }
 
@@ -96,9 +96,9 @@ const voltagePath = [
   gap: 14px;
   align-items: center;
   padding: 14px;
-  border: 1px solid rgba(194, 65, 12, 0.12);
+  border: 1px solid rgba(194, 65, 12, 0.14);
   border-radius: 18px;
-  background: #fff;
+  background: linear-gradient(180deg, #ffffff, #fff7f1);
 }
 
 .step-mark {
@@ -116,7 +116,7 @@ const voltagePath = [
 
 .step-body p {
   margin: 6px 0 0;
-  color: #334155;
+  color: #475569;
   line-height: 1.55;
 }
 
@@ -128,20 +128,20 @@ const voltagePath = [
 .drop-card strong {
   display: block;
   margin: 10px 0 8px;
-  color: #9a3412;
+  color: #c2410c;
   font-size: 2.4rem;
 }
 
 .drop-note {
   margin: 0 0 14px;
-  color: #334155;
+  color: #475569;
   line-height: 1.55;
 }
 
 .drop-card ul {
   margin: 0;
   padding-left: 18px;
-  color: #334155;
+  color: #475569;
   line-height: 1.7;
 }
 

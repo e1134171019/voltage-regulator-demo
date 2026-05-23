@@ -74,10 +74,10 @@ const insights = [
 
 .visual-card,
 .insight-card {
-  border: 1px solid rgba(13, 148, 136, 0.18);
+  border: 1px solid rgba(13, 148, 136, 0.2);
   border-radius: 22px;
-  background: linear-gradient(180deg, #ffffff, #eafbf7);
-  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+  background: linear-gradient(180deg, #ffffff, #e2f8f1);
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.1);
   padding: 18px;
 }
 
@@ -104,9 +104,9 @@ const insights = [
 }
 
 .bar-card {
-  border: 1px solid rgba(13, 148, 136, 0.12);
+  border: 1px solid rgba(13, 148, 136, 0.14);
   border-radius: 18px;
-  background: #ffffff;
+  background: linear-gradient(180deg, #ffffff, #f5fffc);
   padding: 14px;
 }
 
@@ -116,15 +116,15 @@ const insights = [
   align-items: flex-end;
   padding: 10px;
   border-radius: 18px;
-  background: linear-gradient(180deg, rgba(15, 118, 110, 0.2), rgba(15, 118, 110, 0.05));
+  background: linear-gradient(180deg, rgba(15, 118, 110, 0.24), rgba(15, 118, 110, 0.07));
 }
 
 .bar-fill {
   width: 100%;
   min-height: 18%;
   border-radius: 14px 14px 10px 10px;
-  background: linear-gradient(180deg, #34d399, #0f766e);
-  box-shadow: 0 10px 20px rgba(15, 118, 110, 0.28);
+  background: linear-gradient(180deg, #2dd4bf, #0f766e);
+  box-shadow: 0 12px 24px rgba(15, 118, 110, 0.3);
   transition: height 0.3s ease;
 }
 
@@ -159,7 +159,7 @@ const insights = [
 }
 
 .insight-card span {
-  color: #0f766e;
+  color: #0b7265;
   font-size: 0.88rem;
 }
 
@@ -172,7 +172,7 @@ const insights = [
 
 .insight-card p {
   margin: 0;
-  color: #334155;
+  color: #475569;
   line-height: 1.55;
 }
 

@@ -113,9 +113,9 @@ const activeScene = computed(
   min-height: 100vh;
   font-family: Inter, 'Segoe UI', 'Noto Sans TC', sans-serif;
   background:
-    radial-gradient(circle at 20% 12%, rgba(45, 212, 191, 0.28), transparent 28%),
-    radial-gradient(circle at 85% 8%, rgba(96, 165, 250, 0.18), transparent 22%),
-    linear-gradient(180deg, #030712 0%, #0f172a 34%, #f6efe6 34%, #f6efe6 100%);
+    radial-gradient(circle at 20% 12%, rgba(45, 212, 191, 0.34), transparent 26%),
+    radial-gradient(circle at 85% 8%, rgba(96, 165, 250, 0.22), transparent 20%),
+    linear-gradient(180deg, #020617 0%, #0f172a 30%, #edf2f7 30%, #edf2f7 100%);
   color: #0f172a;
 }
 
@@ -151,10 +151,10 @@ const activeScene = computed(
   border: 1px solid rgba(148, 163, 184, 0.18);
   border-radius: 32px;
   background:
-    radial-gradient(circle at 18% 18%, rgba(45, 212, 191, 0.42), transparent 24%),
-    radial-gradient(circle at 88% 12%, rgba(56, 189, 248, 0.28), transparent 18%),
-    linear-gradient(135deg, #020617 0%, #0f172a 48%, #134e4a 100%);
-  box-shadow: 0 28px 80px rgba(3, 7, 18, 0.36);
+    radial-gradient(circle at 18% 18%, rgba(45, 212, 191, 0.5), transparent 22%),
+    radial-gradient(circle at 88% 12%, rgba(56, 189, 248, 0.32), transparent 16%),
+    linear-gradient(135deg, #020617 0%, #0b1220 46%, #0f766e 100%);
+  box-shadow: 0 32px 90px rgba(3, 7, 18, 0.42);
 }
 
 .eyebrow {
@@ -178,7 +178,7 @@ h1 {
   max-width: 56ch;
   margin: 18px 0 0;
   font-size: 1.02rem;
-  color: rgba(226, 232, 240, 0.95);
+  color: rgba(241, 245, 249, 0.98);
 }
 
 .metrics {
@@ -193,7 +193,7 @@ h1 {
   padding: 16px 18px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 20px;
-  background: rgba(15, 23, 42, 0.72);
+  background: rgba(15, 23, 42, 0.82);
   backdrop-filter: blur(20px);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
@@ -228,10 +228,10 @@ h1 {
   align-items: center;
   gap: 14px;
   padding: 16px 18px;
-  border: 1px solid rgba(148, 163, 184, 0.24);
+  border: 1px solid rgba(15, 23, 42, 0.12);
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.1);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.96));
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.11);
   text-align: left;
   cursor: pointer;
   transition:
@@ -248,8 +248,8 @@ h1 {
 
 .scene-tab.active {
   border-color: rgba(13, 148, 136, 0.78);
-  background: linear-gradient(135deg, rgba(240, 253, 250, 0.98), rgba(239, 246, 255, 0.98));
-  box-shadow: 0 18px 34px rgba(15, 118, 110, 0.16);
+  background: linear-gradient(135deg, rgba(240, 253, 250, 1), rgba(224, 242, 254, 0.98));
+  box-shadow: 0 18px 34px rgba(15, 118, 110, 0.2);
 }
 
 .scene-index {
@@ -282,9 +282,12 @@ h1 {
 .scene-panel {
   padding: 24px;
   border-radius: 28px;
-  background: rgba(255, 255, 255, 0.97);
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.14);
+  background:
+    radial-gradient(circle at 12% 0%, rgba(45, 212, 191, 0.18), transparent 28%),
+    linear-gradient(180deg, rgba(8, 15, 31, 0.98), rgba(15, 23, 42, 0.96));
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  box-shadow: 0 28px 72px rgba(3, 7, 18, 0.3);
+  color: #e2e8f0;
 }
 
 .scene-header {
@@ -297,7 +300,7 @@ h1 {
 
 .scene-kicker {
   margin: 0 0 8px;
-  color: #0f766e;
+  color: #99f6e4;
   font-size: 0.85rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -305,14 +308,14 @@ h1 {
 
 .scene-header h2 {
   margin: 0;
-  color: #0f172a;
+  color: #f8fafc;
   font-size: clamp(1.6rem, 3vw, 2.5rem);
 }
 
 .scene-summary {
   margin: 0;
   max-width: 34ch;
-  color: #334155;
+  color: rgba(226, 232, 240, 0.88);
 }
 
 @media (max-width: 900px) {
