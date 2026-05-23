@@ -113,10 +113,10 @@ const activeScene = computed(
   min-height: 100vh;
   font-family: Inter, 'Segoe UI', 'Noto Sans TC', sans-serif;
   background:
-    radial-gradient(circle at 20% 12%, rgba(45, 212, 191, 0.34), transparent 26%),
-    radial-gradient(circle at 85% 8%, rgba(96, 165, 250, 0.22), transparent 20%),
-    linear-gradient(180deg, #020617 0%, #0f172a 30%, #edf2f7 30%, #edf2f7 100%);
-  color: #0f172a;
+    radial-gradient(circle at 20% 12%, rgba(45, 212, 191, 0.3), transparent 24%),
+    radial-gradient(circle at 85% 8%, rgba(96, 165, 250, 0.2), transparent 18%),
+    linear-gradient(180deg, #020617 0%, #0b1220 56%, #020617 100%);
+  color: #e2e8f0;
 }
 
 :global(body)::before {
@@ -221,6 +221,11 @@ h1 {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+  padding: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 24px;
+  background: rgba(2, 6, 23, 0.42);
+  backdrop-filter: blur(18px);
 }
 
 .scene-tab {
@@ -228,10 +233,10 @@ h1 {
   align-items: center;
   gap: 14px;
   padding: 16px 18px;
-  border: 1px solid rgba(15, 23, 42, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.18);
   border-radius: 20px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.96));
-  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.11);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.88), rgba(30, 41, 59, 0.86));
+  box-shadow: 0 14px 32px rgba(3, 7, 18, 0.22);
   text-align: left;
   cursor: pointer;
   transition:
@@ -242,14 +247,14 @@ h1 {
 
 .scene-tab:hover {
   transform: translateY(-2px);
-  border-color: rgba(15, 118, 110, 0.35);
-  box-shadow: 0 16px 28px rgba(15, 23, 42, 0.12);
+  border-color: rgba(45, 212, 191, 0.44);
+  box-shadow: 0 18px 30px rgba(3, 7, 18, 0.26);
 }
 
 .scene-tab.active {
-  border-color: rgba(13, 148, 136, 0.78);
-  background: linear-gradient(135deg, rgba(240, 253, 250, 1), rgba(224, 242, 254, 0.98));
-  box-shadow: 0 18px 34px rgba(15, 118, 110, 0.2);
+  border-color: rgba(45, 212, 191, 0.7);
+  background: linear-gradient(135deg, rgba(15, 118, 110, 0.38), rgba(37, 99, 235, 0.28));
+  box-shadow: 0 18px 36px rgba(15, 118, 110, 0.22);
 }
 
 .scene-index {
@@ -270,13 +275,13 @@ h1 {
 }
 
 .scene-tab strong {
-  color: #0f172a;
+  color: #f8fafc;
   font-size: 1rem;
 }
 
 .scene-tab small {
   margin-top: 2px;
-  color: #475569;
+  color: rgba(226, 232, 240, 0.8);
 }
 
 .scene-panel {
