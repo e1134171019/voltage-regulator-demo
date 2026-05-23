@@ -74,9 +74,10 @@ const insights = [
 
 .visual-card,
 .insight-card {
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  border: 1px solid rgba(13, 148, 136, 0.18);
   border-radius: 22px;
-  background: linear-gradient(180deg, #f8fbff, #eef6f8);
+  background: linear-gradient(180deg, #ffffff, #eafbf7);
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
   padding: 18px;
 }
 
@@ -103,9 +104,9 @@ const insights = [
 }
 
 .bar-card {
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  border: 1px solid rgba(13, 148, 136, 0.12);
   border-radius: 18px;
-  background: #fff;
+  background: #ffffff;
   padding: 14px;
 }
 
@@ -115,15 +116,15 @@ const insights = [
   align-items: flex-end;
   padding: 10px;
   border-radius: 18px;
-  background: linear-gradient(180deg, rgba(15, 118, 110, 0.12), rgba(15, 118, 110, 0.03));
+  background: linear-gradient(180deg, rgba(15, 118, 110, 0.2), rgba(15, 118, 110, 0.05));
 }
 
 .bar-fill {
   width: 100%;
   min-height: 18%;
   border-radius: 14px 14px 10px 10px;
-  background: linear-gradient(180deg, #2dd4bf, #0f766e);
-  box-shadow: 0 10px 20px rgba(15, 118, 110, 0.2);
+  background: linear-gradient(180deg, #34d399, #0f766e);
+  box-shadow: 0 10px 20px rgba(15, 118, 110, 0.28);
   transition: height 0.3s ease;
 }
 
@@ -141,7 +142,7 @@ const insights = [
 .bar-card small {
   display: block;
   margin-top: 8px;
-  color: #64748b;
+  color: #475569;
   line-height: 1.5;
 }
 
@@ -158,7 +159,7 @@ const insights = [
 }
 
 .insight-card span {
-  color: #475569;
+  color: #0f766e;
   font-size: 0.88rem;
 }
 
@@ -171,7 +172,7 @@ const insights = [
 
 .insight-card p {
   margin: 0;
-  color: #475569;
+  color: #334155;
   line-height: 1.55;
 }
 

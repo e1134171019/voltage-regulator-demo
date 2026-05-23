@@ -61,9 +61,10 @@ const stages = [
 
 .diagram-card,
 .notes-card {
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  border: 1px solid rgba(29, 78, 216, 0.16);
   border-radius: 22px;
-  background: linear-gradient(180deg, #f8fcff, #f1f7ef);
+  background: linear-gradient(180deg, #f8fcff, #edf7f2);
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
   padding: 18px;
 }
 
@@ -96,9 +97,9 @@ const stages = [
 .stage {
   position: relative;
   min-height: 220px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  border: 1px solid rgba(29, 78, 216, 0.12);
   border-radius: 18px;
-  background: #fff;
+  background: #ffffff;
   padding: 14px;
 }
 
@@ -121,7 +122,7 @@ const stages = [
   border-radius: 12px;
   color: #1d4ed8;
   font-weight: 700;
-  background: linear-gradient(135deg, rgba(191, 219, 254, 0.95), rgba(219, 234, 254, 0.9));
+  background: linear-gradient(135deg, rgba(191, 219, 254, 1), rgba(219, 234, 254, 0.98));
 }
 
 .stage strong {
@@ -132,7 +133,7 @@ const stages = [
 
 .stage p {
   margin: 0;
-  color: #475569;
+  color: #334155;
   line-height: 1.55;
 }
 

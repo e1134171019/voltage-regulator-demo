@@ -113,9 +113,10 @@ const activeScene = computed(
   min-height: 100vh;
   font-family: Inter, 'Segoe UI', 'Noto Sans TC', sans-serif;
   background:
-    radial-gradient(circle at top left, rgba(15, 118, 110, 0.22), transparent 35%),
-    linear-gradient(180deg, #08111c 0%, #0d1827 45%, #f5f3ee 45%, #f5f3ee 100%);
-  color: #13202e;
+    radial-gradient(circle at 20% 12%, rgba(45, 212, 191, 0.28), transparent 28%),
+    radial-gradient(circle at 85% 8%, rgba(96, 165, 250, 0.18), transparent 22%),
+    linear-gradient(180deg, #030712 0%, #0f172a 34%, #f6efe6 34%, #f6efe6 100%);
+  color: #0f172a;
 }
 
 :global(body)::before {
@@ -143,16 +144,26 @@ const activeScene = computed(
 }
 
 .hero {
+  position: relative;
+  overflow: hidden;
   color: #f8fafc;
-  padding: 24px 0 8px;
+  padding: 28px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 32px;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(45, 212, 191, 0.42), transparent 24%),
+    radial-gradient(circle at 88% 12%, rgba(56, 189, 248, 0.28), transparent 18%),
+    linear-gradient(135deg, #020617 0%, #0f172a 48%, #134e4a 100%);
+  box-shadow: 0 28px 80px rgba(3, 7, 18, 0.36);
 }
 
 .eyebrow {
   margin: 0 0 12px;
-  color: #89f7d7;
+  color: #99f6e4;
   font-size: 0.78rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
+  text-shadow: 0 0 16px rgba(153, 246, 228, 0.18);
 }
 
 h1 {
@@ -160,13 +171,14 @@ h1 {
   max-width: 9ch;
   font-size: clamp(2.6rem, 5vw, 5rem);
   line-height: 0.95;
+  text-shadow: 0 10px 30px rgba(3, 7, 18, 0.32);
 }
 
 .intro {
   max-width: 56ch;
   margin: 18px 0 0;
   font-size: 1.02rem;
-  color: rgba(241, 245, 249, 0.84);
+  color: rgba(226, 232, 240, 0.95);
 }
 
 .metrics {
@@ -179,16 +191,19 @@ h1 {
 .metrics article {
   min-width: 128px;
   padding: 16px 18px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 20px;
-  background: rgba(8, 17, 28, 0.55);
-  backdrop-filter: blur(18px);
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(20px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 8px 24px rgba(3, 7, 18, 0.14);
 }
 
 .metrics span {
   display: block;
   margin-bottom: 8px;
-  color: rgba(226, 232, 240, 0.7);
+  color: rgba(226, 232, 240, 0.82);
   font-size: 0.82rem;
 }
 
@@ -215,8 +230,8 @@ h1 {
   padding: 16px 18px;
   border: 1px solid rgba(148, 163, 184, 0.24);
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.1);
   text-align: left;
   cursor: pointer;
   transition:
@@ -232,8 +247,9 @@ h1 {
 }
 
 .scene-tab.active {
-  border-color: rgba(15, 118, 110, 0.8);
-  box-shadow: 0 18px 32px rgba(15, 118, 110, 0.15);
+  border-color: rgba(13, 148, 136, 0.78);
+  background: linear-gradient(135deg, rgba(240, 253, 250, 0.98), rgba(239, 246, 255, 0.98));
+  box-shadow: 0 18px 34px rgba(15, 118, 110, 0.16);
 }
 
 .scene-index {
@@ -245,7 +261,7 @@ h1 {
   flex: none;
   font-weight: 700;
   color: #0f766e;
-  background: linear-gradient(135deg, rgba(153, 246, 228, 0.95), rgba(191, 219, 254, 0.9));
+  background: linear-gradient(135deg, rgba(153, 246, 228, 1), rgba(191, 219, 254, 0.98));
 }
 
 .scene-tab strong,
@@ -254,21 +270,21 @@ h1 {
 }
 
 .scene-tab strong {
-  color: #142433;
+  color: #0f172a;
   font-size: 1rem;
 }
 
 .scene-tab small {
   margin-top: 2px;
-  color: #5b657b;
+  color: #475569;
 }
 
 .scene-panel {
   padding: 24px;
   border-radius: 28px;
-  background: rgba(255, 255, 255, 0.88);
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  box-shadow: 0 22px 50px rgba(15, 23, 42, 0.12);
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.14);
 }
 
 .scene-header {
@@ -296,7 +312,7 @@ h1 {
 .scene-summary {
   margin: 0;
   max-width: 34ch;
-  color: #475569;
+  color: #334155;
 }
 
 @media (max-width: 900px) {
