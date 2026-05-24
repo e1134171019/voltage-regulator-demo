@@ -1,102 +1,379 @@
 <template>
-  <main class="app-shell">
+  <main class="shell">
     <section class="hero">
-      <p class="eyebrow">Voltage Regulator Demo</p>
-      <h1>電壓穩定示範面板</h1>
-      <p class="intro">
-        透過三個場景，快速對照負載變化、壓降與穩壓電路的作用。
-      </p>
-      <div class="metrics">
-        <article>
-          <span>輸入</span>
-          <strong>12V</strong>
-        </article>
-        <article>
-          <span>輸出</span>
-          <strong>5V</strong>
-        </article>
-        <article>
-          <span>目標</span>
-          <strong>穩定</strong>
+      <div class="hero-copy">
+        <p class="eyebrow">BJT NPN · Vue Canvas Lab</p>
+        <h1>麵包板式 BJT 教學簡報</h1>
+        <p class="intro">
+          簡報層呈現公式與電路圖，Vue Canvas 負責粒子流動與節點高亮。
+          所有導線都以直角繞線為主，避開元件與符號遮擋。
+        </p>
+
+        <div class="topology">
+          <pre>VCC → RC → C
+RB → B
+E  → GND
+
+IE = IC + IB</pre>
+        </div>
+      </div>
+
+      <div class="hero-stats">
+        <article v-for="chip in chips" :key="chip.label">
+          <span>{{ chip.label }}</span>
+          <strong>{{ chip.value }}</strong>
+          <small>{{ chip.note }}</small>
         </article>
       </div>
     </section>
 
-    <section class="demo">
-      <div class="scene-tabs" role="tablist" aria-label="Demo scenes">
-        <button
-          v-for="scene in scenes"
-          :key="scene.id"
-          type="button"
-          class="scene-tab"
-          :class="{ active: scene.id === activeSceneId }"
-          @click="activeSceneId = scene.id"
-        >
-          <span class="scene-index">{{ scene.index }}</span>
-          <span>
-            <strong>{{ scene.title }}</strong>
-            <small>{{ scene.subtitle }}</small>
-          </span>
-        </button>
-      </div>
+    <section class="workspace">
+      <BjtBreadboard :model="model" />
 
-      <div class="scene-panel">
-        <header class="scene-header">
-          <div>
-            <p class="scene-kicker">{{ activeScene.phase }}</p>
-            <h2>{{ activeScene.title }}</h2>
+      <aside class="sidebar">
+        <section class="panel formula-panel">
+          <div class="panel-head">
+            <p class="panel-kicker">關鍵方程</p>
+            <h2>活性區與飽和區</h2>
           </div>
-          <p class="scene-summary">
-            {{ activeScene.summary }}
-          </p>
-        </header>
 
-        <component :is="activeScene.component" />
-      </div>
+          <div class="equation-main">IE = IC + IB</div>
+
+          <div class="equation-list">
+            <div><strong>IB</strong> = max((VCC - VBE) / RB, 0)</div>
+            <div><strong>IC</strong> = min(hFE × IB, (VCC - VCE(sat)) / RC)</div>
+            <div><strong>VCE</strong> = VCC - IC × RC</div>
+            <div><strong>VRB</strong> = IB × RB</div>
+            <div><strong>VRC</strong> = IC × RC</div>
+          </div>
+
+          <p class="formula-note">{{ model.regionNote }}</p>
+        </section>
+
+        <section class="panel controls-panel">
+          <div class="panel-head">
+            <p class="panel-kicker">控制項</p>
+            <h2>供應與增益</h2>
+          </div>
+
+          <div v-for="control in controls" :key="control.key" class="control">
+            <div class="control-head">
+              <div>
+                <span>{{ control.label }}</span>
+                <strong>{{ control.format(state[control.key]) }}</strong>
+              </div>
+              <small>{{ control.hint }}</small>
+            </div>
+
+            <input
+              v-model.number="state[control.key]"
+              class="range"
+              type="range"
+              :min="control.min"
+              :max="control.max"
+              :step="control.step"
+            />
+          </div>
+        </section>
+
+        <section class="panel readout-panel">
+          <div class="panel-head">
+            <p class="panel-kicker">即時讀數</p>
+            <h2>節點與電壓降</h2>
+          </div>
+
+          <div class="readout-group">
+            <h3>節點電壓</h3>
+            <div class="readout-grid compact">
+              <article v-for="item in nodeReadouts" :key="item.label">
+                <span>{{ item.label }}</span>
+                <strong>{{ item.value }}</strong>
+                <small>{{ item.note }}</small>
+              </article>
+            </div>
+          </div>
+
+          <div class="readout-group">
+            <h3>元件與電流</h3>
+            <div class="readout-grid">
+              <article v-for="item in deviceReadouts" :key="item.label">
+                <span>{{ item.label }}</span>
+                <strong>{{ item.value }}</strong>
+                <small>{{ item.note }}</small>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel meter-panel">
+          <div class="panel-head">
+            <p class="panel-kicker">電流比例</p>
+            <h2>IB / IC / IE</h2>
+          </div>
+
+          <div class="meter-stack">
+            <div v-for="bar in currentBars" :key="bar.label" class="meter-row">
+              <div class="meter-topline">
+                <span>{{ bar.label }}</span>
+                <strong>{{ bar.value }}</strong>
+              </div>
+              <div class="meter-track">
+                <div class="meter-fill" :style="{ width: `${bar.percent}%`, background: bar.color }"></div>
+              </div>
+              <small>{{ bar.share }}</small>
+            </div>
+          </div>
+        </section>
+      </aside>
     </section>
   </main>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
-import Scene01LoadChange from './components/Scene01LoadChange.vue'
-import Scene02VoltageDrop from './components/Scene02VoltageDrop.vue'
-import Scene03RegulatorCircuit from './components/Scene03RegulatorCircuit.vue'
+import { computed, reactive } from 'vue'
+import BjtBreadboard from './components/BjtBreadboard.vue'
 
-const scenes = [
+const VBE = 0.72
+const VCE_SAT = 0.2
+
+const state = reactive({
+  vcc: 9,
+  rb: 220000,
+  rc: 680,
+  hfe: 120,
+})
+
+const controls = [
   {
-    id: 'load',
-    index: '01',
-    title: '負載變化',
-    subtitle: '電流增加時的輸出反應',
-    phase: 'Scene 01',
-    summary: '觀察同一顆電源在不同負載下，輸出電壓如何被拉低。',
-    component: Scene01LoadChange,
+    key: 'vcc',
+    label: 'VCC',
+    hint: '同一顆電池同時驅動 RC 與 RB。',
+    min: 3,
+    max: 12,
+    step: 0.1,
+    format: formatVoltage,
   },
   {
-    id: 'drop',
-    index: '02',
-    title: '壓降分析',
-    subtitle: '導線與接點造成的能量損失',
-    phase: 'Scene 02',
-    summary: '從電源到負載的路徑上，找出最容易掉壓的位置。',
-    component: Scene02VoltageDrop,
+    key: 'rb',
+    label: 'RB',
+    hint: '基極驅動電阻，越小 IB 越大。',
+    min: 47000,
+    max: 1000000,
+    step: 1000,
+    format: formatResistance,
   },
   {
-    id: 'regulator',
-    index: '03',
-    title: '穩壓電路',
-    subtitle: '用電路把輸出固定住',
-    phase: 'Scene 03',
-    summary: '把輸入、濾波、穩壓與輸出階段串起來，理解穩壓器的角色。',
-    component: Scene03RegulatorCircuit,
+    key: 'rc',
+    label: 'RC',
+    hint: '集極負載電阻，決定 IC 與 VCE。',
+    min: 220,
+    max: 3300,
+    step: 10,
+    format: formatResistance,
+  },
+  {
+    key: 'hfe',
+    label: 'hFE',
+    hint: '晶體管電流增益 β。',
+    min: 20,
+    max: 300,
+    step: 1,
+    format: formatBeta,
   },
 ]
 
-const activeSceneId = ref(scenes[0].id)
-const activeScene = computed(
-  () => scenes.find((scene) => scene.id === activeSceneId.value) ?? scenes[0],
-)
+function formatVoltage(value) {
+  return `${value.toFixed(2)} V`
+}
+
+function formatResistance(value) {
+  if (value >= 1000000) {
+    return `${(value / 1000000).toFixed(2)} MΩ`
+  }
+
+  if (value >= 1000) {
+    const precision = value >= 100000 ? 0 : 1
+    return `${(value / 1000).toFixed(precision)} kΩ`
+  }
+
+  return `${value.toFixed(0)} Ω`
+}
+
+function formatCurrent(value) {
+  const absValue = Math.abs(value)
+
+  if (absValue < 1e-9) {
+    return '0 A'
+  }
+
+  if (absValue < 1e-3) {
+    return `${(absValue * 1e6).toFixed(1)} µA`
+  }
+
+  return `${(absValue * 1e3).toFixed(absValue * 1e3 < 10 ? 2 : 1)} mA`
+}
+
+function formatBeta(value) {
+  return `β = ${value}`
+}
+
+const model = computed(() => {
+  const ibA = Math.max((state.vcc - VBE) / state.rb, 0)
+  const icIdealA = state.hfe * ibA
+  const icLimitA = Math.max((state.vcc - VCE_SAT) / state.rc, 0)
+  const icA = Math.min(icIdealA, icLimitA)
+  const ieA = icA + ibA
+  const vrb = ibA * state.rb
+  const vrc = icA * state.rc
+  const vb = ibA > 0 ? VBE : state.vcc
+  const vc = state.vcc - vrc
+  const ve = 0
+  const vbe = vb - ve
+  const vce = vc - ve
+  const gainEffective = ibA > 0 ? icA / ibA : 0
+
+  let region = 'cutoff'
+  let regionLabel = '截止區'
+  let regionNote = 'IB 幾乎為零，晶體管不導通，粒子會停在門前。'
+
+  if (ibA > 0 && icA < icIdealA - 1e-12) {
+    region = 'saturation'
+    regionLabel = '飽和區'
+    regionNote = 'RC 開始限流，IC 不再等於 hFE × IB，粒子在集極側被壓住。'
+  } else if (ibA > 0) {
+    region = 'active'
+    regionLabel = '放大區'
+    regionNote = 'IC ≈ hFE × IB，這是教科書裡最典型的 BJT 放大模型。'
+  }
+
+  return {
+    vcc: state.vcc,
+    rb: state.rb,
+    rc: state.rc,
+    hfe: state.hfe,
+    ibA,
+    icA,
+    ieA,
+    icIdealA,
+    icLimitA,
+    vrb,
+    vrc,
+    vb,
+    vc,
+    ve,
+    vbe,
+    vce,
+    gainEffective,
+    region,
+    regionLabel,
+    regionNote,
+  }
+})
+
+const chips = computed(() => [
+  {
+    label: '工作區域',
+    value: model.value.regionLabel,
+    note: model.value.regionNote,
+  },
+  {
+    label: '有效 β',
+    value: model.value.ibA > 0 ? `β≈${model.value.gainEffective.toFixed(1)}` : '—',
+    note: 'IC / IB',
+  },
+  {
+    label: 'VCE',
+    value: formatVoltage(model.value.vce),
+    note: '集-射電壓',
+  },
+])
+
+const nodeReadouts = computed(() => [
+  {
+    label: 'VB',
+    value: formatVoltage(model.value.vb),
+    note: '基極節點',
+  },
+  {
+    label: 'VC',
+    value: formatVoltage(model.value.vc),
+    note: '集極節點',
+  },
+  {
+    label: 'VE',
+    value: formatVoltage(model.value.ve),
+    note: '射極節點',
+  },
+])
+
+const deviceReadouts = computed(() => [
+  {
+    label: 'VBE',
+    value: formatVoltage(model.value.vbe),
+    note: '基-射壓降',
+  },
+  {
+    label: 'VCE',
+    value: formatVoltage(model.value.vce),
+    note: '集-射壓降',
+  },
+  {
+    label: 'IB',
+    value: formatCurrent(model.value.ibA),
+    note: '基極電流',
+  },
+  {
+    label: 'IC',
+    value: formatCurrent(model.value.icA),
+    note: '集極電流',
+  },
+  {
+    label: 'IE',
+    value: formatCurrent(model.value.ieA),
+    note: 'IE = IC + IB',
+  },
+  {
+    label: 'VRB',
+    value: formatVoltage(model.value.vrb),
+    note: 'RB 兩端壓降',
+  },
+  {
+    label: 'VRC',
+    value: formatVoltage(model.value.vrc),
+    note: 'RC 兩端壓降',
+  },
+])
+
+const currentBars = computed(() => {
+  const total = Math.max(model.value.ieA, 1e-9)
+
+  return [
+    {
+      key: 'ib',
+      label: 'IB',
+      value: formatCurrent(model.value.ibA),
+      share: `${((model.value.ibA / total) * 100).toFixed(1)}% of IE`,
+      percent: Math.max(2, (model.value.ibA / total) * 100),
+      color: 'linear-gradient(90deg, #f59e0b, #fbbf24)',
+    },
+    {
+      key: 'ic',
+      label: 'IC',
+      value: formatCurrent(model.value.icA),
+      share: `${((model.value.icA / total) * 100).toFixed(1)}% of IE`,
+      percent: Math.max(2, (model.value.icA / total) * 100),
+      color: 'linear-gradient(90deg, #22d3ee, #38bdf8)',
+    },
+    {
+      key: 'ie',
+      label: 'IE',
+      value: formatCurrent(model.value.ieA),
+      share: '100% of IE',
+      percent: 100,
+      color: 'linear-gradient(90deg, #34d399, #10b981)',
+    },
+  ]
+})
 </script>
 
 <style scoped>
@@ -105,7 +382,7 @@ const activeScene = computed(
 }
 
 :global(html) {
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 :global(body) {
@@ -131,28 +408,29 @@ const activeScene = computed(
   mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.5), transparent 80%);
 }
 
-:global(button) {
+:global(button),
+:global(input) {
   font: inherit;
 }
 
-.app-shell {
-  width: min(1180px, calc(100% - 32px));
+.shell {
+  width: min(1400px, calc(100% - 32px));
   margin: 0 auto;
-  padding: 40px 0 56px;
+  padding: 34px 0 56px;
   display: grid;
-  gap: 28px;
+  gap: 22px;
 }
 
 .hero {
-  position: relative;
-  overflow: hidden;
-  color: #f8fafc;
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(300px, 0.9fr);
+  gap: 18px;
   padding: 28px;
   border: 1px solid rgba(148, 163, 184, 0.18);
   border-radius: 32px;
   background:
-    radial-gradient(circle at 18% 18%, rgba(45, 212, 191, 0.5), transparent 22%),
-    radial-gradient(circle at 88% 12%, rgba(56, 189, 248, 0.32), transparent 16%),
+    radial-gradient(circle at 18% 18%, rgba(45, 212, 191, 0.4), transparent 22%),
+    radial-gradient(circle at 88% 12%, rgba(56, 189, 248, 0.24), transparent 16%),
     linear-gradient(135deg, #020617 0%, #0b1220 46%, #0f766e 100%);
   box-shadow: 0 32px 90px rgba(3, 7, 18, 0.42);
 }
@@ -168,185 +446,326 @@ const activeScene = computed(
 
 h1 {
   margin: 0;
-  max-width: 9ch;
-  font-size: clamp(2.6rem, 5vw, 5rem);
+  max-width: 12ch;
+  font-size: clamp(2.4rem, 5vw, 4.8rem);
   line-height: 0.95;
+  color: #f8fafc;
   text-shadow: 0 10px 30px rgba(3, 7, 18, 0.32);
 }
 
 .intro {
-  max-width: 56ch;
+  max-width: 58ch;
   margin: 18px 0 0;
   font-size: 1.02rem;
-  color: rgba(241, 245, 249, 0.98);
+  color: rgba(241, 245, 249, 0.96);
 }
 
-.metrics {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  margin-top: 24px;
-}
-
-.metrics article {
-  min-width: 128px;
+.topology {
+  margin-top: 18px;
   padding: 16px 18px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 20px;
+  background: rgba(15, 23, 42, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.topology pre {
+  margin: 0;
+  color: #d9f8f2;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.hero-stats {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.hero-stats article {
+  padding: 16px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 20px;
   background: rgba(15, 23, 42, 0.82);
   backdrop-filter: blur(20px);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
     0 8px 24px rgba(3, 7, 18, 0.14);
 }
 
-.metrics span {
+.hero-stats span {
   display: block;
   margin-bottom: 8px;
-  color: rgba(226, 232, 240, 0.82);
+  color: rgba(226, 232, 240, 0.8);
   font-size: 0.82rem;
 }
 
-.metrics strong {
-  color: #fff;
-  font-size: 1.4rem;
-}
-
-.demo {
-  display: grid;
-  gap: 18px;
-}
-
-.scene-tabs {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  padding: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 24px;
-  background: rgba(2, 6, 23, 0.42);
-  backdrop-filter: blur(18px);
-}
-
-.scene-tab {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 16px 18px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 20px;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.88), rgba(30, 41, 59, 0.86));
-  box-shadow: 0 14px 32px rgba(3, 7, 18, 0.22);
-  text-align: left;
-  cursor: pointer;
-  transition:
-    transform 0.18s ease,
-    border-color 0.18s ease,
-    box-shadow 0.18s ease;
-}
-
-.scene-tab:hover {
-  transform: translateY(-2px);
-  border-color: rgba(45, 212, 191, 0.44);
-  box-shadow: 0 18px 30px rgba(3, 7, 18, 0.26);
-}
-
-.scene-tab.active {
-  border-color: rgba(45, 212, 191, 0.7);
-  background: linear-gradient(135deg, rgba(15, 118, 110, 0.38), rgba(37, 99, 235, 0.28));
-  box-shadow: 0 18px 36px rgba(15, 118, 110, 0.22);
-}
-
-.scene-index {
-  width: 42px;
-  height: 42px;
-  border-radius: 14px;
-  display: grid;
-  place-items: center;
-  flex: none;
-  font-weight: 700;
-  color: #0f766e;
-  background: linear-gradient(135deg, rgba(153, 246, 228, 1), rgba(191, 219, 254, 0.98));
-}
-
-.scene-tab strong,
-.scene-tab small {
+.hero-stats strong {
   display: block;
+  color: #fff;
+  font-size: 1.34rem;
 }
 
-.scene-tab strong {
-  color: #f8fafc;
-  font-size: 1rem;
+.hero-stats small {
+  display: block;
+  margin-top: 8px;
+  color: rgba(203, 213, 225, 0.88);
+  line-height: 1.5;
 }
 
-.scene-tab small {
-  margin-top: 2px;
-  color: rgba(226, 232, 240, 0.8);
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(360px, 0.95fr);
+  gap: 20px;
+  align-items: start;
 }
 
-.scene-panel {
-  padding: 24px;
-  border-radius: 28px;
-  background:
-    radial-gradient(circle at 12% 0%, rgba(45, 212, 191, 0.18), transparent 28%),
-    linear-gradient(180deg, rgba(8, 15, 31, 0.98), rgba(15, 23, 42, 0.96));
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  box-shadow: 0 28px 72px rgba(3, 7, 18, 0.3);
-  color: #e2e8f0;
+.sidebar {
+  display: grid;
+  gap: 16px;
+  position: sticky;
+  top: 18px;
+  align-self: start;
 }
 
-.scene-header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 18px;
-  margin-bottom: 18px;
+.panel {
+  padding: 18px;
+  border-radius: 24px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(8, 15, 31, 0.95);
+  box-shadow: 0 24px 60px rgba(3, 7, 18, 0.22);
 }
 
-.scene-kicker {
-  margin: 0 0 8px;
+.panel-head {
+  margin-bottom: 12px;
+}
+
+.panel-kicker {
+  margin: 0 0 6px;
   color: #99f6e4;
-  font-size: 0.85rem;
-  letter-spacing: 0.12em;
+  font-size: 0.76rem;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 
-.scene-header h2 {
+.panel-head h2 {
   margin: 0;
   color: #f8fafc;
-  font-size: clamp(1.6rem, 3vw, 2.5rem);
+  font-size: 1.15rem;
 }
 
-.scene-summary {
-  margin: 0;
-  max-width: 34ch;
-  color: rgba(226, 232, 240, 0.88);
+.equation-main {
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(45, 212, 191, 0.18);
+  background: linear-gradient(135deg, rgba(15, 118, 110, 0.28), rgba(37, 99, 235, 0.18));
+  color: #f8fafc;
+  font-size: 1.45rem;
+  font-weight: 800;
+  text-align: center;
 }
 
-@media (max-width: 900px) {
-  .scene-tabs {
+.equation-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.equation-list div {
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.76);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  color: rgba(226, 232, 240, 0.9);
+}
+
+.equation-list strong {
+  color: #99f6e4;
+}
+
+.formula-note {
+  margin: 14px 0 0;
+  color: rgba(226, 232, 240, 0.86);
+  line-height: 1.6;
+}
+
+.control {
+  padding: 14px 0 0;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.control:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.control-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.control-head span {
+  display: block;
+  color: #cbd5e1;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+}
+
+.control-head strong {
+  display: block;
+  margin-top: 4px;
+  color: #fff;
+  font-size: 1.02rem;
+}
+
+.control-head small {
+  color: rgba(203, 213, 225, 0.76);
+  line-height: 1.45;
+  max-width: 24ch;
+  text-align: right;
+}
+
+.range {
+  width: 100%;
+  margin-top: 12px;
+  accent-color: #2dd4bf;
+}
+
+.readout-group + .readout-group {
+  margin-top: 16px;
+}
+
+.readout-group h3 {
+  margin: 0 0 10px;
+  color: #a7f3d0;
+  font-size: 0.92rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.readout-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.readout-grid.compact {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.readout-grid article {
+  padding: 12px;
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.readout-grid span {
+  display: block;
+  color: #99f6e4;
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+}
+
+.readout-grid strong {
+  display: block;
+  margin-top: 6px;
+  color: #fff;
+  font-size: 1.08rem;
+}
+
+.readout-grid small {
+  display: block;
+  margin-top: 6px;
+  color: rgba(203, 213, 225, 0.8);
+  line-height: 1.45;
+}
+
+.meter-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.meter-row {
+  display: grid;
+  gap: 8px;
+}
+
+.meter-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.meter-topline span {
+  color: #cbd5e1;
+  font-size: 0.88rem;
+  letter-spacing: 0.08em;
+}
+
+.meter-topline strong {
+  color: #fff;
+  font-size: 0.98rem;
+}
+
+.meter-track {
+  height: 12px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(30, 41, 59, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.meter-fill {
+  height: 100%;
+  border-radius: inherit;
+  box-shadow: 0 0 18px rgba(45, 212, 191, 0.22);
+}
+
+.meter-row small {
+  color: rgba(203, 213, 225, 0.82);
+}
+
+@media (max-width: 1180px) {
+  .hero,
+  .workspace {
     grid-template-columns: 1fr;
   }
 
-  .scene-header {
-    flex-direction: column;
-    align-items: flex-start;
+  .sidebar {
+    position: static;
   }
 }
 
-@media (max-width: 640px) {
-  .app-shell {
-    width: min(100% - 20px, 1180px);
-    padding-top: 24px;
+@media (max-width: 720px) {
+  .shell {
+    width: min(100% - 18px, 1400px);
+    padding-top: 18px;
   }
 
-  .scene-panel {
+  .hero,
+  .panel {
     padding: 18px;
-    border-radius: 24px;
+    border-radius: 22px;
   }
 
-  h1 {
+  .readout-grid,
+  .readout-grid.compact {
+    grid-template-columns: 1fr;
+  }
+
+  .control-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .control-head small {
     max-width: none;
+    text-align: left;
   }
 }
 </style>
