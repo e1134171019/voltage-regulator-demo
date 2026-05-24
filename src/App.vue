@@ -382,27 +382,15 @@ const currentBars = computed(() => {
 }
 
 :global(html) {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 :global(body) {
   margin: 0;
   min-height: 100vh;
   font-family: Inter, 'Segoe UI', 'Noto Sans TC', sans-serif;
-  background: #1e293b;
-  color: #e2e8f0;
-}
-
-:global(body)::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.5), transparent 80%);
+  background: #e0e7ff;
+  color: #1e293b;
 }
 
 :global(button),
@@ -424,19 +412,19 @@ const currentBars = computed(() => {
   grid-template-columns: minmax(0, 1.4fr) minmax(300px, 0.9fr);
   gap: 18px;
   padding: 28px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid rgba(30, 41, 59, 0.18);
   border-radius: 32px;
-  background: linear-gradient(135deg, #1a2847 0%, #2a3f5f 50%, #1e3a52 100%);
-  box-shadow: 0 32px 90px rgba(3, 7, 18, 0.42);
+  background: linear-gradient(135deg, #c7d2e8 0%, #dbe4f5 50%, #d0dfe5 100%);
+  box-shadow: 0 32px 90px rgba(3, 7, 18, 0.12);
 }
 
 .eyebrow {
   margin: 0 0 12px;
-  color: #99f6e4;
+  color: #0891b2;
   font-size: 0.78rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  text-shadow: 0 0 16px rgba(153, 246, 228, 0.18);
+  text-shadow: 0 0 16px rgba(8, 145, 178, 0.1);
 }
 
 h1 {
@@ -444,29 +432,29 @@ h1 {
   max-width: 12ch;
   font-size: clamp(2.4rem, 5vw, 4.8rem);
   line-height: 0.95;
-  color: #f8fafc;
-  text-shadow: 0 10px 30px rgba(3, 7, 18, 0.32);
+  color: #1e293b;
+  text-shadow: 0 10px 30px rgba(255, 255, 255, 0.4);
 }
 
 .intro {
   max-width: 58ch;
   margin: 18px 0 0;
   font-size: 1.02rem;
-  color: rgba(241, 245, 249, 0.96);
+  color: rgba(30, 41, 59, 0.96);
 }
 
 .topology {
   margin-top: 18px;
   padding: 16px 18px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid rgba(30, 41, 59, 0.18);
   border-radius: 20px;
-  background: rgba(15, 23, 42, 0.72);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  background: rgba(226, 232, 240, 0.5);
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.04);
 }
 
 .topology pre {
   margin: 0;
-  color: #d9f8f2;
+  color: #334155;
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
   line-height: 1.55;
   white-space: pre-wrap;
@@ -480,32 +468,32 @@ h1 {
 
 .hero-stats article {
   padding: 16px 18px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(30, 41, 59, 0.14);
   border-radius: 20px;
-  background: rgba(15, 23, 42, 0.82);
+  background: rgba(226, 232, 240, 0.6);
   backdrop-filter: blur(20px);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 8px 24px rgba(3, 7, 18, 0.14);
+    inset 0 1px 0 rgba(0, 0, 0, 0.04),
+    0 8px 24px rgba(3, 7, 18, 0.06);
 }
 
 .hero-stats span {
   display: block;
   margin-bottom: 8px;
-  color: rgba(226, 232, 240, 0.8);
+  color: rgba(30, 41, 59, 0.8);
   font-size: 0.82rem;
 }
 
 .hero-stats strong {
   display: block;
-  color: #fff;
+  color: #1e293b;
   font-size: 1.34rem;
 }
 
 .hero-stats small {
   display: block;
   margin-top: 8px;
-  color: rgba(203, 213, 225, 0.88);
+  color: rgba(51, 65, 85, 0.88);
   line-height: 1.5;
 }
 
@@ -527,11 +515,11 @@ h1 {
 .panel {
   padding: 18px;
   border-radius: 24px;
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  background: rgba(20, 30, 58, 0.98);
+  border: 1px solid rgba(30, 41, 59, 0.28);
+  background: rgba(248, 250, 252, 0.6);
   box-shadow:
-    0 24px 60px rgba(3, 7, 18, 0.22),
-    0 0 0 1px rgba(255, 255, 255, 0.04);
+    0 24px 60px rgba(3, 7, 18, 0.08),
+    0 0 0 1px rgba(30, 41, 59, 0.04);
 }
 
 .panel-head {
@@ -540,7 +528,7 @@ h1 {
 
 .panel-kicker {
   margin: 0 0 6px;
-  color: #99f6e4;
+  color: #0891b2;
   font-size: 0.76rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -548,16 +536,16 @@ h1 {
 
 .panel-head h2 {
   margin: 0;
-  color: #f8fafc;
+  color: #1e293b;
   font-size: 1.15rem;
 }
 
 .equation-main {
   padding: 12px 14px;
   border-radius: 18px;
-  border: 1px solid rgba(45, 212, 191, 0.18);
-  background: linear-gradient(135deg, rgba(15, 118, 110, 0.28), rgba(37, 99, 235, 0.18));
-  color: #f8fafc;
+  border: 1px solid rgba(6, 78, 59, 0.18);
+  background: linear-gradient(135deg, rgba(204, 251, 241, 0.28), rgba(219, 234, 254, 0.18));
+  color: #1e293b;
   font-size: 1.45rem;
   font-weight: 800;
   text-align: center;
@@ -572,24 +560,24 @@ h1 {
 .equation-list div {
   padding: 10px 12px;
   border-radius: 16px;
-  background: rgba(15, 23, 42, 0.76);
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  color: rgba(226, 232, 240, 0.9);
+  background: rgba(241, 245, 249, 0.76);
+  border: 1px solid rgba(30, 41, 59, 0.12);
+  color: rgba(30, 41, 59, 0.9);
 }
 
 .equation-list strong {
-  color: #99f6e4;
+  color: #0891b2;
 }
 
 .formula-note {
   margin: 14px 0 0;
-  color: rgba(226, 232, 240, 0.86);
+  color: rgba(30, 41, 59, 0.86);
   line-height: 1.6;
 }
 
 .control {
   padding: 14px 0 0;
-  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  border-top: 1px solid rgba(30, 41, 59, 0.12);
 }
 
 .control:first-of-type {
@@ -606,7 +594,7 @@ h1 {
 
 .control-head span {
   display: block;
-  color: #cbd5e1;
+  color: rgba(30, 41, 59, 0.82);
   font-size: 0.82rem;
   letter-spacing: 0.08em;
 }
@@ -614,12 +602,12 @@ h1 {
 .control-head strong {
   display: block;
   margin-top: 4px;
-  color: #fff;
+  color: #1e293b;
   font-size: 1.02rem;
 }
 
 .control-head small {
-  color: rgba(203, 213, 225, 0.76);
+  color: rgba(51, 65, 85, 0.76);
   line-height: 1.45;
   max-width: 24ch;
   text-align: right;
@@ -637,7 +625,7 @@ h1 {
 
 .readout-group h3 {
   margin: 0 0 10px;
-  color: #a7f3d0;
+  color: #0891b2;
   font-size: 0.92rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -656,13 +644,13 @@ h1 {
 .readout-grid article {
   padding: 12px;
   border-radius: 18px;
-  background: rgba(15, 23, 42, 0.78);
-  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: rgba(241, 245, 249, 0.78);
+  border: 1px solid rgba(30, 41, 59, 0.12);
 }
 
 .readout-grid span {
   display: block;
-  color: #99f6e4;
+  color: #0891b2;
   font-size: 0.78rem;
   letter-spacing: 0.1em;
 }
@@ -670,14 +658,14 @@ h1 {
 .readout-grid strong {
   display: block;
   margin-top: 6px;
-  color: #fff;
+  color: #1e293b;
   font-size: 1.08rem;
 }
 
 .readout-grid small {
   display: block;
   margin-top: 6px;
-  color: rgba(203, 213, 225, 0.8);
+  color: rgba(51, 65, 85, 0.8);
   line-height: 1.45;
 }
 

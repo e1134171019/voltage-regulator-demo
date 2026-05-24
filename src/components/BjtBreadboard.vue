@@ -21,16 +21,16 @@
       >
         <defs>
           <linearGradient id="boardSurface" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="#1e293b" />
-            <stop offset="100%" stop-color="#0f172a" />
+            <stop offset="0%" stop-color="#f1f5f9" />
+            <stop offset="100%" stop-color="#e2e8f0" />
           </linearGradient>
           <linearGradient id="panelSurface" x1="0%" y1="0%" x2="0%" y2="100%">
             <stop offset="0%" stop-color="#f8fafc" />
             <stop offset="100%" stop-color="#e2e8f0" />
           </linearGradient>
           <linearGradient id="batterySurface" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#111827" />
-            <stop offset="100%" stop-color="#374151" />
+            <stop offset="0%" stop-color="#cbd5e1" />
+            <stop offset="100%" stop-color="#e2e8f0" />
           </linearGradient>
           <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
             <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#34d399" flood-opacity="0.38" />
@@ -38,9 +38,9 @@
         </defs>
 
         <rect x="40" y="40" width="1120" height="680" rx="34" fill="url(#boardSurface)" />
-        <rect x="490" y="140" width="220" height="470" rx="24" fill="#0f172a" opacity="0.88" />
-        <rect x="66" y="76" width="1068" height="44" rx="18" fill="#111827" opacity="0.92" />
-        <rect x="66" y="640" width="1068" height="44" rx="18" fill="#111827" opacity="0.92" />
+        <rect x="490" y="140" width="220" height="470" rx="24" fill="#cbd5e1" opacity="0.88" />
+        <rect x="66" y="76" width="1068" height="44" rx="18" fill="#cbd5e1" opacity="0.92" />
+        <rect x="66" y="640" width="1068" height="44" rx="18" fill="#cbd5e1" opacity="0.92" />
 
         <g class="rail-labels">
           <text x="88" y="102">+VCC</text>
@@ -81,35 +81,35 @@
 
         <g class="battery" transform="translate(60 498)">
           <rect x="0" y="0" width="170" height="160" rx="24" fill="url(#batterySurface)" />
-          <rect x="16" y="16" width="138" height="128" rx="18" fill="#111827" opacity="0.9" />
+          <rect x="16" y="16" width="138" height="128" rx="18" fill="#f0f4f8" opacity="0.9" />
           <text x="22" y="36" class="component-title">Battery</text>
           <text x="22" y="66" class="battery-plus">+</text>
           <text x="22" y="110" class="battery-minus">-</text>
           <text x="58" y="62" class="terminal-label">+VCC</text>
           <text x="58" y="106" class="terminal-label">GND</text>
           <rect x="148" y="50" width="12" height="18" rx="4" fill="#f43f5e" />
-          <rect x="148" y="94" width="12" height="18" rx="4" fill="#334155" />
+          <rect x="148" y="94" width="12" height="18" rx="4" fill="#94a3b8" />
         </g>
 
         <g class="resistor rc" transform="translate(760 145)">
-          <rect x="0" y="0" width="110" height="170" rx="24" fill="url(#panelSurface)" stroke="#475569" stroke-width="2" />
-          <path d="M55 0 L55 18 M55 152 L55 170" stroke="#94a3b8" stroke-width="8" stroke-linecap="round" />
+          <rect x="0" y="0" width="110" height="170" rx="24" fill="url(#panelSurface)" stroke="#94a3b8" stroke-width="2" />
+          <path d="M55 0 L55 18 M55 152 L55 170" stroke="#64748b" stroke-width="8" stroke-linecap="round" />
           <path d="M28 30 L82 30 M28 58 L82 58 M28 86 L82 86 M28 114 L82 114 M28 142 L82 142" stroke="#c2410c" stroke-width="5" stroke-linecap="round" />
           <text x="18" y="24" class="res-label">RC</text>
           <text x="20" y="170" class="res-value">{{ formatResistance(model.rc) }}</text>
         </g>
 
         <g class="resistor rb" transform="translate(310 175)">
-          <rect x="0" y="0" width="110" height="150" rx="24" fill="url(#panelSurface)" stroke="#475569" stroke-width="2" />
-          <path d="M55 0 L55 18 M55 132 L55 150" stroke="#94a3b8" stroke-width="8" stroke-linecap="round" />
+          <rect x="0" y="0" width="110" height="150" rx="24" fill="url(#panelSurface)" stroke="#94a3b8" stroke-width="2" />
+          <path d="M55 0 L55 18 M55 132 L55 150" stroke="#64748b" stroke-width="8" stroke-linecap="round" />
           <path d="M28 26 L82 26 M28 50 L82 50 M28 74 L82 74 M28 98 L82 98 M28 122 L82 122" stroke="#0f766e" stroke-width="5" stroke-linecap="round" />
           <text x="18" y="22" class="res-label">RB</text>
           <text x="18" y="148" class="res-value">{{ formatResistance(model.rb) }}</text>
         </g>
 
         <g class="transistor" transform="translate(500 214)">
-          <rect x="0" y="0" width="190" height="120" rx="30" fill="#111827" stroke="#334155" stroke-width="2" />
-          <rect x="14" y="14" width="162" height="92" rx="24" fill="#0f172a" />
+          <rect x="0" y="0" width="190" height="120" rx="30" fill="#cbd5e1" stroke="#94a3b8" stroke-width="2" />
+          <rect x="14" y="14" width="162" height="92" rx="24" fill="#e2e8f0" />
           <text x="24" y="34" class="component-title">2SC1384 NPN</text>
           <text x="24" y="58" class="component-subtitle">bjt emitter node / KCL</text>
 
@@ -117,9 +117,9 @@
           <circle cx="95" cy="118" r="7" fill="#fbbf24" />
           <circle cx="132" cy="118" r="7" fill="#34d399" />
 
-          <path d="M58 118 L58 178" stroke="#cbd5e1" stroke-width="6" stroke-linecap="round" />
-          <path d="M95 118 L95 178" stroke="#cbd5e1" stroke-width="6" stroke-linecap="round" />
-          <path d="M132 118 L132 178" stroke="#cbd5e1" stroke-width="6" stroke-linecap="round" />
+          <path d="M58 118 L58 178" stroke="#64748b" stroke-width="6" stroke-linecap="round" />
+          <path d="M95 118 L95 178" stroke="#64748b" stroke-width="6" stroke-linecap="round" />
+          <path d="M132 118 L132 178" stroke="#64748b" stroke-width="6" stroke-linecap="round" />
 
           <text x="48" y="200" class="pin-label">C</text>
           <text x="88" y="200" class="pin-label">B</text>
@@ -593,9 +593,9 @@ onBeforeUnmount(() => {
 .board-card {
   padding: 18px;
   border-radius: 28px;
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  background: rgba(20, 30, 58, 0.98);
-  box-shadow: 0 28px 68px rgba(3, 7, 18, 0.24);
+  border: 1px solid rgba(30, 41, 59, 0.28);
+  background: rgba(248, 250, 252, 0.6);
+  box-shadow: 0 28px 68px rgba(3, 7, 18, 0.08);
 }
 
 .board-head {
@@ -608,7 +608,7 @@ onBeforeUnmount(() => {
 
 .board-kicker {
   margin: 0 0 6px;
-  color: #99f6e4;
+  color: #0891b2;
   font-size: 0.76rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -616,7 +616,7 @@ onBeforeUnmount(() => {
 
 .board-head h2 {
   margin: 0;
-  color: #f8fafc;
+  color: #1e293b;
   font-size: 1.2rem;
 }
 
@@ -626,9 +626,9 @@ onBeforeUnmount(() => {
   gap: 10px;
   padding: 10px 14px;
   border-radius: 999px;
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  background: rgba(15, 23, 42, 0.82);
-  color: #e2e8f0;
+  border: 1px solid rgba(30, 41, 59, 0.14);
+  background: rgba(241, 245, 249, 0.4);
+  color: #1e293b;
   white-space: nowrap;
 }
 
@@ -692,18 +692,18 @@ onBeforeUnmount(() => {
 }
 
 .rail-labels text {
-  fill: #f8fafc;
-  font-size: 18px;
+  fill: #1e293b;
+  font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.08em;
 }
 
 .wire-labels text {
-  fill: #e2e8f0;
+  fill: #1e293b;
   font-size: 18px;
   font-weight: 700;
   letter-spacing: 0.08em;
-  text-shadow: 0 0 10px rgba(255, 255, 255, 0.18);
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.08);
 }
 
 .wires path {
@@ -713,38 +713,38 @@ onBeforeUnmount(() => {
 }
 
 .component-title {
-  fill: #0f172a;
+  fill: #1e293b;
   font-size: 14px;
   font-weight: 700;
 }
 
 .component-subtitle {
-  fill: #334155;
+  fill: #64748b;
   font-size: 11px;
 }
 
 .res-label {
-  fill: #0f172a;
+  fill: #1e293b;
   font-size: 15px;
   font-weight: 800;
 }
 
 .res-value {
-  fill: #334155;
+  fill: #64748b;
   font-size: 11px;
 }
 
 .terminal-label,
 .pin-label,
 .node-readout {
-  fill: #e2e8f0;
+  fill: #1e293b;
   font-size: 12px;
   font-weight: 700;
 }
 
 .battery-plus,
 .battery-minus {
-  fill: #f8fafc;
+  fill: #1e293b;
   font-size: 24px;
   font-weight: 800;
 }
@@ -759,13 +759,13 @@ onBeforeUnmount(() => {
 .board-foot article {
   padding: 14px;
   border-radius: 18px;
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  background: rgba(15, 23, 42, 0.76);
+  border: 1px solid rgba(30, 41, 59, 0.12);
+  background: rgba(241, 245, 249, 0.76);
 }
 
 .board-foot span {
   display: block;
-  color: #99f6e4;
+  color: #0891b2;
   font-size: 0.78rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -774,14 +774,14 @@ onBeforeUnmount(() => {
 .board-foot strong {
   display: block;
   margin-top: 8px;
-  color: #fff;
+  color: #1e293b;
   font-size: 1.08rem;
 }
 
 .board-foot small {
   display: block;
   margin-top: 6px;
-  color: rgba(203, 213, 225, 0.82);
+  color: rgba(30, 41, 59, 0.82);
   line-height: 1.5;
 }
 
