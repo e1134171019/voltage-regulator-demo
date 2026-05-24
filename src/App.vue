@@ -389,10 +389,7 @@ const currentBars = computed(() => {
   margin: 0;
   min-height: 100vh;
   font-family: Inter, 'Segoe UI', 'Noto Sans TC', sans-serif;
-  background:
-    radial-gradient(circle at 20% 12%, rgba(45, 212, 191, 0.3), transparent 24%),
-    radial-gradient(circle at 85% 8%, rgba(96, 165, 250, 0.2), transparent 18%),
-    linear-gradient(180deg, #020617 0%, #0b1220 56%, #020617 100%);
+  background: #1e293b;
   color: #e2e8f0;
 }
 
@@ -429,10 +426,7 @@ const currentBars = computed(() => {
   padding: 28px;
   border: 1px solid rgba(148, 163, 184, 0.18);
   border-radius: 32px;
-  background:
-    radial-gradient(circle at 18% 18%, rgba(45, 212, 191, 0.4), transparent 22%),
-    radial-gradient(circle at 88% 12%, rgba(56, 189, 248, 0.24), transparent 16%),
-    linear-gradient(135deg, #020617 0%, #0b1220 46%, #0f766e 100%);
+  background: linear-gradient(135deg, #1a2847 0%, #2a3f5f 50%, #1e3a52 100%);
   box-shadow: 0 32px 90px rgba(3, 7, 18, 0.42);
 }
 
