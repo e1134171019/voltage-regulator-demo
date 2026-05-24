@@ -593,8 +593,8 @@ onBeforeUnmount(() => {
 .board-card {
   padding: 18px;
   border-radius: 28px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  background: rgba(8, 15, 31, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(20, 30, 58, 0.98);
   box-shadow: 0 28px 68px rgba(3, 7, 18, 0.24);
 }
 

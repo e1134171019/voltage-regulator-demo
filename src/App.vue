@@ -419,6 +419,7 @@ const currentBars = computed(() => {
   padding: 34px 0 56px;
   display: grid;
   gap: 22px;
+  min-height: 100dvh;
 }
 
 .hero {
@@ -532,9 +533,11 @@ h1 {
 .panel {
   padding: 18px;
   border-radius: 24px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  background: rgba(8, 15, 31, 0.95);
-  box-shadow: 0 24px 60px rgba(3, 7, 18, 0.22);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(20, 30, 58, 0.98);
+  box-shadow:
+    0 24px 60px rgba(3, 7, 18, 0.22),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 .panel-head {
