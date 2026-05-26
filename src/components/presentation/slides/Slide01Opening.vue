@@ -31,10 +31,11 @@ import openingVisual from '../../../../46faf0f1-dc28-4f71-a8ec-72fb0e94d456.png'
 
 h2 {
   margin: 0;
-  color: #10233a;
+  color: #d9f7ff;
   font-size: clamp(2rem, 4vw, 3.2rem);
   line-height: 1.05;
   text-align: left;
+  text-shadow: 0 0 18px rgba(0, 240, 255, 0.22);
 }
 
 .image-frame {

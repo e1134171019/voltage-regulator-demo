@@ -135,6 +135,7 @@ onUnmounted(() => {
 
 <style scoped>
 .presentation-container {
+  position: relative;
   width: min(1500px, calc(100% - 32px));
   margin: 0 auto;
   min-height: 100vh;
@@ -143,6 +144,19 @@ onUnmounted(() => {
   justify-content: space-between;
   padding: 24px 0;
   gap: 20px;
+  z-index: 1;
+}
+
+.presentation-container::before {
+  content: '';
+  position: absolute;
+  inset: 14px 10px;
+  border: 1px solid rgba(0, 240, 255, 0.08);
+  border-radius: 28px;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 79, 163, 0.04),
+    0 0 80px rgba(0, 240, 255, 0.05);
 }
 
 /* Header */
@@ -151,25 +165,26 @@ onUnmounted(() => {
   justify-content: flex-end;
   align-items: center;
   padding: 16px 28px;
-  background: rgba(255, 255, 255, 0.45);
+  background: linear-gradient(135deg, rgba(4, 12, 30, 0.76), rgba(9, 19, 48, 0.68));
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--nova-border);
   border-radius: 20px;
-  box-shadow: 0 10px 30px rgba(30, 41, 59, 0.03);
+  box-shadow: 0 18px 40px rgba(1, 8, 22, 0.38);
 }
 
 .slide-indicator {
   font-size: 0.8rem;
-  color: #64748b;
-  font-weight: 500;
-  background: #f1f5f9;
+  color: var(--nova-text-dim);
+  font-weight: 600;
+  background: rgba(5, 18, 44, 0.88);
   padding: 6px 12px;
   border-radius: 99px;
-  border: 1px solid rgba(148, 163, 184, 0.15);
+  border: 1px solid rgba(0, 240, 255, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(255, 79, 163, 0.08);
 }
 
 .slide-indicator strong {
-  color: #0f172a;
+  color: var(--nova-text);
   font-weight: 800;
 }
 
@@ -180,6 +195,8 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  position: relative;
+  z-index: 1;
 }
 
 /* Footer Controls */
@@ -188,17 +205,17 @@ onUnmounted(() => {
   grid-template-columns: 1.2fr 2fr 1.2fr;
   align-items: center;
   padding: 16px 24px;
-  background: rgba(255, 255, 255, 0.45);
+  background: linear-gradient(135deg, rgba(4, 12, 30, 0.76), rgba(9, 19, 48, 0.68));
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--nova-border);
   border-radius: 20px;
-  box-shadow: 0 -10px 30px rgba(30, 41, 59, 0.03);
+  box-shadow: 0 -12px 30px rgba(1, 8, 22, 0.28);
 }
 
 .slide-dropdown {
-  background: #fff;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  color: #0f172a;
+  background: rgba(4, 16, 40, 0.92);
+  border: 1px solid rgba(0, 240, 255, 0.18);
+  color: var(--nova-text);
   font-weight: 700;
   font-size: 0.85rem;
   padding: 8px 12px;
@@ -207,11 +224,12 @@ onUnmounted(() => {
   cursor: pointer;
   max-width: 280px;
   width: 100%;
+  box-shadow: inset 0 0 0 1px rgba(255, 79, 163, 0.08);
 }
 
 .slide-dropdown:focus {
-  border-color: #0891b2;
-  box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.1);
+  border-color: var(--nova-cyan);
+  box-shadow: 0 0 0 3px rgba(0, 240, 255, 0.14);
 }
 
 /* Progress Dots */
@@ -226,21 +244,21 @@ onUnmounted(() => {
   height: 10px;
   border-radius: 99px;
   border: none;
-  background: #cbd5e1;
+  background: rgba(132, 171, 196, 0.45);
   cursor: pointer;
   padding: 0;
   transition: all 0.25s ease;
 }
 
 .dot-btn:hover {
-  background: #94a3b8;
+  background: rgba(0, 240, 255, 0.65);
   transform: scale(1.2);
 }
 
 .dot-btn.active {
   width: 32px;
-  background: #0891b2;
-  box-shadow: 0 4px 10px rgba(8, 145, 178, 0.3);
+  background: linear-gradient(90deg, var(--nova-cyan), var(--nova-pink));
+  box-shadow: 0 4px 14px rgba(0, 240, 255, 0.35);
 }
 
 /* Navigation Buttons */
@@ -251,32 +269,33 @@ onUnmounted(() => {
 }
 
 .nav-btn {
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  background: #fff;
-  color: #0f172a;
+  border: 1px solid rgba(0, 240, 255, 0.18);
+  background: rgba(4, 16, 40, 0.92);
+  color: var(--nova-text);
   font-weight: 700;
   padding: 8px 16px;
   border-radius: 12px;
   cursor: pointer;
   font-size: 0.85rem;
   transition: all 0.25s ease;
+  box-shadow: inset 0 0 0 1px rgba(255, 79, 163, 0.08);
 }
 
 .nav-btn:not(:disabled):hover {
-  border-color: #0891b2;
-  color: #0891b2;
+  border-color: var(--nova-cyan);
+  color: var(--nova-cyan);
   transform: translateY(-1px);
 }
 
 .nav-btn.next {
-  background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
-  color: #fff;
+  background: linear-gradient(135deg, var(--nova-cyan) 0%, var(--nova-pink) 52%, var(--nova-violet) 100%);
+  color: #04101f;
   border: none;
-  box-shadow: 0 8px 20px rgba(8, 145, 178, 0.2);
+  box-shadow: 0 8px 24px rgba(0, 240, 255, 0.24);
 }
 
 .nav-btn.next:not(:disabled):hover {
-  box-shadow: 0 12px 25px rgba(8, 145, 178, 0.35);
+  box-shadow: 0 12px 28px rgba(255, 79, 163, 0.3);
   transform: translateY(-2px);
 }
 
@@ -292,15 +311,15 @@ onUnmounted(() => {
   left: 0;
   width: 100%;
   height: 4px;
-  background: rgba(148, 163, 184, 0.1);
+  background: rgba(132, 171, 196, 0.12);
   z-index: 1000;
 }
 
 .progress-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, #22d3ee, #0891b2);
+  background: linear-gradient(90deg, var(--nova-cyan), var(--nova-pink), var(--nova-violet));
   transition: width 0.3s ease;
-  box-shadow: 0 1px 8px rgba(34, 211, 238, 0.4);
+  box-shadow: 0 1px 10px rgba(0, 240, 255, 0.42);
 }
 
 /* Transitions: Slide Fade */
