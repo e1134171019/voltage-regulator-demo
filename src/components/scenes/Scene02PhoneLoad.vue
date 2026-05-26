@@ -443,13 +443,14 @@ onUnmounted(() => {
 
 .app {
   min-height: 100%;
-  height: 100%;
+  height: auto;
   background: #020812;
   color: #d0e4ff;
   font-family: 'Courier New', Courier, monospace;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   position: relative;
   user-select: none;
 }
@@ -522,7 +523,7 @@ onUnmounted(() => {
   position: relative;
   z-index: 5;
   display: grid;
-  grid-template-columns: minmax(640px, 1.1fr) minmax(480px, 0.9fr);
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
   grid-template-rows: 390px minmax(360px, 1fr);
   grid-template-areas:
     'phone phone'
@@ -887,6 +888,10 @@ onUnmounted(() => {
 @keyframes drawCurve { to { stroke-dashoffset: 0; } }
 
 @media (max-width: 1180px) {
+  .app {
+    overflow-y: auto;
+  }
+
   .triangle-layout {
     grid-template-columns: 1fr;
     grid-template-rows: auto auto auto;
@@ -904,5 +909,105 @@ onUnmounted(() => {
   }
   .hdr-deco:last-child,
   .hdr-deco { text-align: center; }
+}
+
+@media (max-width: 800px) {
+  .hdr {
+    padding: 12px 16px 8px;
+  }
+
+  .hdr-deco {
+    font-size: 10px;
+    letter-spacing: 2px;
+  }
+
+  .hdr-center {
+    padding: 0 8px;
+  }
+
+  .main-title {
+    font-size: clamp(22px, 7vw, 30px);
+    letter-spacing: 1.5px;
+  }
+
+  .main-sub {
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  .triangle-layout {
+    width: min(100%, 96vw);
+    gap: 16px;
+    padding: 12px 12px 20px;
+  }
+
+  .pane-ttl {
+    font-size: 11px;
+    letter-spacing: 1.6px;
+  }
+
+  .phone {
+    width: 160px;
+    height: 290px;
+  }
+
+  .neon-halo {
+    width: 220px;
+    height: 310px;
+  }
+
+  .halo2 {
+    width: 244px;
+    height: 338px;
+  }
+
+  .mod-scene {
+    min-height: 0;
+    max-height: none;
+  }
+
+  .curve-svg {
+    height: auto;
+    aspect-ratio: 520 / 220;
+  }
+
+  .ftr {
+    padding: 6px 8px 4px;
+    font-size: 13px;
+    letter-spacing: 1px;
+  }
+
+  .ftr-msg {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .ftr-sub {
+    line-height: 1.5;
+  }
+
+  .reset-btn {
+    right: 12px;
+    bottom: calc(14px + var(--slide-nav-offset, 0px));
+  }
+}
+
+@media (max-width: 560px) {
+  .triangle-layout {
+    gap: 14px;
+    padding: 10px 10px 18px;
+  }
+
+  .mod-scene {
+    min-height: 230px;
+  }
+
+  .curve-panel {
+    max-width: none;
+  }
+
+  .curve-svg {
+    min-height: 180px;
+  }
 }
 </style>

@@ -142,6 +142,7 @@ onUnmounted(() => {
   position: relative;
   width: min(1500px, calc(100% - 32px));
   margin: 0 auto;
+  min-height: 100dvh;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -152,7 +153,7 @@ onUnmounted(() => {
 }
 
 .presentation-container.immersive {
-  width: 100vw;
+  width: 100%;
   margin: 0;
   padding: 0 0 16px;
   gap: 12px;
@@ -188,8 +189,9 @@ onUnmounted(() => {
 
 .presentation-workspace.immersive {
   --slide-nav-offset: 96px;
+  min-height: calc(100dvh - 112px);
   min-height: calc(100vh - 112px);
-  height: calc(100vh - 112px);
+  height: auto;
 }
 
 .presentation-workspace.nav-only-titles :deep(.slide-intro),
@@ -348,29 +350,71 @@ onUnmounted(() => {
 }
 
 @media (max-width: 800px) {
+  .presentation-container {
+    width: min(1500px, calc(100% - 20px));
+    padding: 16px 0 20px;
+    gap: 16px;
+  }
+
   .presentation-container.immersive {
     padding-bottom: 12px;
   }
 
+  .presentation-workspace {
+    min-height: 0;
+  }
+
   .presentation-workspace.immersive {
     --slide-nav-offset: 174px;
-    min-height: calc(100vh - 198px);
-    height: calc(100vh - 198px);
+    min-height: 0;
+    height: auto;
   }
 
   .presentation-footer {
     grid-template-columns: 1fr;
     gap: 16px;
     justify-items: center;
+    padding: 14px 16px;
+  }
+
+  .footer-left,
+  .footer-center,
+  .footer-right {
+    width: 100%;
   }
   
   .slide-dropdown {
     max-width: 100%;
   }
 
+  .progress-dots {
+    flex-wrap: wrap;
+  }
+
   .footer-right {
     justify-content: center;
     width: 100%;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 560px) {
+  .presentation-container {
+    width: min(1500px, calc(100% - 12px));
+    padding: 12px 0 16px;
+  }
+
+  .presentation-container::before {
+    inset: 8px 4px;
+    border-radius: 20px;
+  }
+
+  .presentation-footer.immersive {
+    width: calc(100% - 16px);
+  }
+
+  .nav-btn {
+    flex: 1 1 140px;
   }
 }
 </style>

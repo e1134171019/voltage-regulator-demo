@@ -1,19 +1,10 @@
 <template>
   <section class="runtime-shell">
-    <aside class="hud-column controls-column">
-      <div class="panel-card panel-head">
-        <p class="eyebrow">Breadboard Runtime</p>
-        <h3>固定麵包板 × 互動量測模板</h3>
-        <p>
-          第 3 頁先驗證一個可重用模式：中央固定 breadboard，左右放控制與量測 HUD，
-          後續第 4 到第 10 頁只換節點、旋鈕與教學焦點。
-        </p>
-      </div>
-
+    <aside class="control-column">
       <div class="panel-card control-card">
         <div class="card-head">
-          <span class="badge">Input Control</span>
-          <strong>調節電壓 / 電流</strong>
+          <span class="badge">Input</span>
+          <strong>調節</strong>
         </div>
 
         <label class="control-field">
@@ -28,137 +19,155 @@
           <input v-model.number="loadCurrent" type="range" min="0.05" max="0.8" step="0.01" />
         </label>
       </div>
-
-      <div class="panel-card state-card">
-        <div class="card-head">
-          <span class="badge badge-amber">Runtime State</span>
-          <strong>{{ regulatorModel.modeLabel }}</strong>
-        </div>
-
-        <div class="state-grid">
-          <article>
-            <span>Vout</span>
-            <strong>{{ formatVoltage(regulatorModel.vout) }}</strong>
-          </article>
-          <article>
-            <span>Vref</span>
-            <strong>{{ formatVoltage(regulatorModel.vref) }}</strong>
-          </article>
-          <article>
-            <span>Ib</span>
-            <strong>{{ formatCurrent(regulatorModel.baseCurrent) }}</strong>
-          </article>
-          <article>
-            <span>Power</span>
-            <strong>{{ formatPower(regulatorModel.vout * loadCurrent) }}</strong>
-          </article>
-        </div>
-
-        <p class="state-note">{{ regulatorModel.modeNote }}</p>
-      </div>
-
-      <div class="panel-card parts-card">
-        <div class="card-head">
-          <span class="badge badge-slate">FZPZ Assets</span>
-          <strong>這頁已接入的元件</strong>
-        </div>
-
-        <div class="part-list">
-          <article v-for="item in placedPartsSummary" :key="item.id">
-            <span>{{ item.kind }}</span>
-            <strong>{{ item.title }}</strong>
-            <small>{{ item.note }}</small>
-          </article>
-        </div>
-      </div>
     </aside>
 
     <div class="board-column">
       <div class="board-frame" :style="boardFrameStyle">
         <div v-if="loadingAssets" class="board-empty">載入 `.fzpz` 資產中...</div>
         <div v-else-if="loadError" class="board-empty board-error">{{ loadError }}</div>
-        <template v-else>
-          <div class="board-svg-stage" v-html="sceneSvg"></div>
 
-          <button
-            v-for="node in boardNodes"
-            :key="node.id"
-            class="node-hit"
-            :class="{ active: selectedNodeId === node.id }"
-            :style="nodeStyle(node)"
-            :title="`${node.label} · ${node.hole}`"
-            @click="selectedNodeId = node.id"
+        <template v-else>
+          <div class="board-base" v-html="boardSvgBase"></div>
+
+          <svg
+            ref="overlaySvgRef"
+            class="board-overlay"
+            :viewBox="overlayViewBox"
+            preserveAspectRatio="xMidYMid meet"
+            @click="handleBoardClick"
           >
-            <span>{{ node.shortLabel }}</span>
-          </button>
+            <g class="wire-layer">
+              <path
+                v-for="wire in renderedWires"
+                :key="wire.id"
+                class="runtime-wire"
+                :class="{ 'is-user-wire': wire.userCreated, selected: selectedWireId === wire.id }"
+                :d="wire.path"
+                :stroke="wire.color"
+                :stroke-width="wire.width"
+                @click.stop="selectWire(wire.id)"
+              />
+            </g>
+
+            <g class="part-layer">
+              <g
+                v-for="part in renderedParts"
+                :key="part.id"
+                class="part-group"
+                :class="{ selected: selectedPartId === part.id, dragging: dragState?.partId === part.id }"
+                :transform="matrixToString(part.displayTransform)"
+                @pointerdown.stop="startPartDrag($event, part.id)"
+              >
+                <rect
+                  v-if="part.bounds"
+                  class="part-hitbox"
+                  :x="part.bounds.minX"
+                  :y="part.bounds.minY"
+                  :width="part.bounds.width"
+                  :height="part.bounds.height"
+                  rx="2"
+                  ry="2"
+                />
+                <g v-html="part.innerSvg"></g>
+              </g>
+            </g>
+
+            <g class="measure-layer">
+              <g
+                v-for="node in boardNodes"
+                :key="node.id"
+                class="measure-node"
+                :class="{ active: selectedNodeId === node.id }"
+                @click.stop="selectNode(node.id)"
+              >
+                <circle :cx="node.anchor.x" :cy="node.anchor.y" :r="selectedNodeId === node.id ? 5.6 : 4.4" :fill="node.color" />
+                <circle :cx="node.anchor.x" :cy="node.anchor.y" :r="selectedNodeId === node.id ? 8.2 : 6.6" fill="none" :stroke="node.color" />
+                <text :x="node.anchor.x + 5" :y="node.anchor.y - 5">{{ node.shortLabel }}</text>
+              </g>
+
+              <circle
+                v-if="pendingWireAnchor"
+                class="pending-hole"
+                :cx="pendingWireAnchor.x"
+                :cy="pendingWireAnchor.y"
+                :r="7"
+              />
+            </g>
+          </svg>
+
+          <div class="meter-float">
+            <div class="board-toolbar">
+              <button class="tool-btn" :class="{ active: wireMode }" @click="toggleWireMode">
+                {{ wireMode ? '插線 ON' : '插線 OFF' }}
+              </button>
+              <button class="tool-btn" @click="resetPlacements">重設元件</button>
+              <button class="tool-btn" @click="clearUserWires">清除新線</button>
+            </div>
+
+            <div class="meter-meta">
+              <span>{{ activeSelectionLabel }}</span>
+              <strong v-if="pendingWireStart">起點 {{ pendingWireStart }}</strong>
+              <strong v-else-if="selectedWireId">Delete 可刪線</strong>
+              <strong v-else-if="dragState">拖動中</strong>
+              <strong v-else>{{ regulatorModel.modeLabel }}</strong>
+            </div>
+
+            <div class="meter-tag">{{ selectedMeasurement?.label ?? '--' }}</div>
+            <div class="meter-hole">{{ selectedMeasurement?.hole ?? '--' }}</div>
+            <div class="meter-voltage">
+              {{ selectedMeasurement ? formatVoltage(selectedMeasurement.voltage) : '--' }}
+            </div>
+            <div class="meter-row">
+              <article>
+                <span>Current</span>
+                <strong>{{ selectedMeasurement ? formatCurrent(selectedMeasurement.current) : '--' }}</strong>
+              </article>
+              <article>
+                <span>Power</span>
+                <strong>{{ selectedMeasurement ? formatPower(selectedMeasurement.power) : '--' }}</strong>
+              </article>
+            </div>
+          </div>
         </template>
       </div>
     </div>
-
-    <aside class="hud-column meter-column">
-      <div class="panel-card meter-shell">
-        <div class="meter-topline">
-          <span class="badge">Probe Screen</span>
-          <strong>{{ selectedMeasurement?.label ?? 'No Node' }}</strong>
-        </div>
-
-        <div class="probe-visual" v-if="probeSvg" v-html="probeSvg"></div>
-
-        <div class="meter-screen">
-          <p class="screen-kicker">{{ selectedMeasurement?.hole ?? '--' }}</p>
-          <strong class="screen-voltage">{{ selectedMeasurement ? formatVoltage(selectedMeasurement.voltage) : '--' }}</strong>
-          <div class="screen-divider"></div>
-          <div class="screen-grid">
-            <article>
-              <span>Current</span>
-              <strong>{{ selectedMeasurement ? formatCurrent(selectedMeasurement.current) : '--' }}</strong>
-            </article>
-            <article>
-              <span>Power</span>
-              <strong>{{ selectedMeasurement ? formatPower(selectedMeasurement.power) : '--' }}</strong>
-            </article>
-          </div>
-        </div>
-
-        <p class="meter-note">
-          {{ selectedMeasurement?.description ?? '點麵包板上的量測點，右側小螢幕會顯示該腳位的電壓 / 電流。' }}
-        </p>
-      </div>
-
-      <div class="panel-card node-card">
-        <div class="card-head">
-          <span class="badge badge-slate">Measurement Nodes</span>
-          <strong>可量測腳位</strong>
-        </div>
-
-        <div class="node-list">
-          <button
-            v-for="node in boardNodes"
-            :key="`${node.id}-list`"
-            class="node-row"
-            :class="{ active: selectedNodeId === node.id }"
-            @click="selectedNodeId = node.id"
-          >
-            <span>{{ node.label }}</span>
-            <strong>{{ node.hole }}</strong>
-            <small>{{ formatVoltage(node.voltage) }} / {{ formatCurrent(node.current) }}</small>
-          </button>
-        </div>
-      </div>
-    </aside>
   </section>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { loadPublicFritzingPackages } from '../utils/fritzingRuntime.js'
 
 const loadingAssets = ref(true)
 const loadError = ref('')
 const packages = ref([])
 const selectedNodeId = ref('vl')
+const selectedPartId = ref('ua741')
+const selectedWireId = ref('')
 const vin = ref(12)
 const loadCurrent = ref(0.28)
+const wireMode = ref(false)
+const pendingWireStart = ref('')
+const dragState = ref(null)
+const overlaySvgRef = ref(null)
+const partPlacements = reactive({})
+const partHidden = reactive({})
+const wires = ref([])
+let nextWireId = 1
+
+const DEFAULT_WIRES = [
+  { id: 'wire-1', from: '25topRed', to: '32topRed', color: '#ff5f7a', width: 3.6, userCreated: false },
+  { id: 'wire-2', from: '25topRed', to: '28K', color: '#ff8c42', width: 3.2, userCreated: false },
+  { id: 'wire-3', from: '28M', to: '28bottomBlue', color: '#67e8f9', width: 3.1, userCreated: false },
+  { id: 'wire-4', from: '28K', to: '33I', color: '#34d399', width: 3.1, userCreated: false },
+  { id: 'wire-5', from: '32L', to: '32topRed', color: '#ff5f7a', width: 3.1, userCreated: false },
+  { id: 'wire-6', from: '34I', to: '34bottomBlue', color: '#67e8f9', width: 3.1, userCreated: false },
+  { id: 'wire-7', from: '32I', to: '39Q', color: '#fbbf24', width: 3.1, userCreated: false },
+  { id: 'wire-8', from: '33L', to: '41N', color: '#f472b6', width: 3.2, userCreated: false },
+  { id: 'wire-9', from: '40N', to: '40topRed', color: '#ff5f7a', width: 3.4, userCreated: false },
+  { id: 'wire-10', from: '42N', to: '42Q', color: '#38bdf8', width: 3.4, userCreated: false },
+  { id: 'wire-11', from: '42Q', to: '42bottomBlue', color: '#fb923c', width: 3.1, userCreated: false },
+]
 
 const PART_LAYOUTS = [
   {
@@ -166,7 +175,6 @@ const PART_LAYOUTS = [
     match: 'custom_ua741_labeled_2x_tight',
     kind: 'IC',
     label: 'UA741',
-    note: '主要比較與控制器，直接從 `.fzpz` 取 breadboard 圖與 connector。',
     holes: {
       connector0: '31I',
       connector1: '32I',
@@ -183,7 +191,6 @@ const PART_LAYOUTS = [
     match: 'custom_npn_to92_cbe_2x_cbe_inside_fixed',
     kind: 'Transistor',
     label: 'NPN 2SC1384',
-    note: '功率級控制端與輸出調整示意。',
     holes: {
       connector0: '40N',
       connector1: '41N',
@@ -195,7 +202,6 @@ const PART_LAYOUTS = [
     match: 'custom_zener_u_6v2_2x_ultrashort',
     kind: 'Reference',
     label: 'ZD 6.2V',
-    note: '建立參考電壓，後續各頁可直接重用這個模式。',
     holes: {
       connector0: '28M',
       connector1: '28K',
@@ -206,7 +212,6 @@ const PART_LAYOUTS = [
     match: 'custom_resistor_470r_u_2x_ultrashort_center_label',
     kind: 'Resistor',
     label: '470R',
-    note: '輸入到參考支路的限流電阻。',
     holes: {
       connector0: '25topRed',
       connector1: '28K',
@@ -217,7 +222,6 @@ const PART_LAYOUTS = [
     match: 'custom_resistor_1k_u_2x_ultrashort_center_label',
     kind: 'Resistor',
     label: '1k',
-    note: '741 輸出到 NPN base 的驅動電阻。',
     holes: {
       connector0: '33L',
       connector1: '41N',
@@ -228,7 +232,6 @@ const PART_LAYOUTS = [
     match: 'custom_resistor_4k7_u_2x_ultrashort_center_label',
     kind: 'Resistor',
     label: '4.7k',
-    note: '輸出回授上支路。',
     holes: {
       connector0: '42P',
       connector1: '39Q',
@@ -239,7 +242,6 @@ const PART_LAYOUTS = [
     match: 'custom_resistor_10k_u_2x_ultrashort_center_label',
     kind: 'Resistor',
     label: '10k',
-    note: '輸出回授下支路。',
     holes: {
       connector0: '39Q',
       connector1: '39bottomBlue',
@@ -247,32 +249,23 @@ const PART_LAYOUTS = [
   },
 ]
 
+const svgMarkupCache = new Map()
+
 const boardPackage = computed(() => findPackage('custom_broad_breadboard_20row_clear'))
-const probePackage = computed(() => findPackage('custom_voltage_probe_meter_simplified_2pin'))
+
+const boardHoleList = computed(() => {
+  return (boardPackage.value?.connectors || []).filter((connector) => connector.anchor)
+})
 
 const boardHoleLookup = computed(() => {
-  const connectors = boardPackage.value?.connectors || []
-  return new Map(connectors.map((connector) => [connector.name.toUpperCase(), connector]))
+  return new Map(boardHoleList.value.map((connector) => [connector.name.toUpperCase(), connector]))
 })
 
-const placedParts = computed(() => {
-  return PART_LAYOUTS.map((layout) => ({
-    ...layout,
-    package: findPackage(layout.match),
-  })).filter((item) => item.package)
-})
+const boardViewBox = computed(() => parseViewBox(boardPackage.value?.svgText || ''))
 
-const placedPartsSummary = computed(() => {
-  return placedParts.value.map((item) => ({
-    id: item.id,
-    kind: item.kind,
-    title: item.package.title,
-    note: item.note,
-  }))
-})
-
-const boardViewBox = computed(() => {
-  return parseViewBox(boardPackage.value?.svgText || '')
+const overlayViewBox = computed(() => {
+  const viewBox = boardViewBox.value
+  return viewBox ? `${viewBox.minX} ${viewBox.minY} ${viewBox.width} ${viewBox.height}` : '0 0 100 100'
 })
 
 const boardFrameStyle = computed(() => {
@@ -283,6 +276,49 @@ const boardFrameStyle = computed(() => {
   return {
     aspectRatio: `${boardViewBox.value.width} / ${boardViewBox.value.height}`,
   }
+})
+
+const boardSvgBase = computed(() => {
+  if (!boardPackage.value?.svgText) {
+    return ''
+  }
+
+  const svgDoc = new DOMParser().parseFromString(boardPackage.value.svgText, 'image/svg+xml')
+  svgDoc.documentElement.setAttribute('preserveAspectRatio', 'xMidYMid meet')
+  return new XMLSerializer().serializeToString(svgDoc)
+})
+
+const holePitch = computed(() => estimateHolePitch(boardHoleList.value))
+
+const placedParts = computed(() => {
+  return PART_LAYOUTS.map((layout) => ({
+    ...layout,
+    package: findPackage(layout.match),
+    holes: partPlacements[layout.id] || { ...layout.holes },
+    hidden: Boolean(partHidden[layout.id]),
+  }))
+    .filter((item) => item.package)
+    .filter((item) => !item.hidden)
+})
+
+const renderedParts = computed(() => {
+  return placedParts.value.map((part) => {
+    const { innerSvg, bounds } = getSvgMarkupInfo(part.package)
+    const baseTransform = buildPartTransform(part, boardHoleLookup.value)
+    const displayTransform = applyDragOffset(
+      baseTransform,
+      dragState.value?.partId === part.id ? dragState.value.dx : 0,
+      dragState.value?.partId === part.id ? dragState.value.dy : 0,
+    )
+
+    return {
+      ...part,
+      innerSvg,
+      bounds,
+      baseTransform,
+      displayTransform,
+    }
+  })
 })
 
 const regulatorModel = computed(() => {
@@ -303,14 +339,6 @@ const regulatorModel = computed(() => {
   const supplyCurrent = loadCurrent.value + baseCurrent + feedbackCurrent + zenerCurrent
   const mode = achievableVout < nominalVout - 0.18 ? 'dropout' : Math.abs(error) < 0.08 ? 'regulated' : 'correcting'
 
-  const modeLabel = mode === 'dropout' ? 'DROP OUT' : mode === 'regulated' ? 'REGULATING' : 'CORRECTING'
-  const modeNote =
-    mode === 'dropout'
-      ? '輸入電壓或負載電流已逼近 headroom，輸出開始掉壓。'
-      : mode === 'regulated'
-        ? '741 與 NPN 正在把輸出維持在目標附近。'
-        : '回授端仍有誤差，741 正在拉動輸出修正。'
-
   return {
     vref,
     vplus,
@@ -322,148 +350,149 @@ const regulatorModel = computed(() => {
     feedbackCurrent,
     zenerCurrent,
     supplyCurrent,
-    mode,
-    modeLabel,
-    modeNote,
+    modeLabel: mode === 'dropout' ? 'DROP OUT' : mode === 'regulated' ? 'REGULATING' : 'CORRECTING',
   }
 })
 
-const measurementNodes = computed(() => [
-  {
-    id: 'vin',
-    label: 'VIN',
-    shortLabel: 'VIN',
-    hole: '32topRed',
-    voltage: vin.value,
-    current: regulatorModel.value.supplyCurrent,
-    power: vin.value * regulatorModel.value.supplyCurrent,
-    description: '輸入供電 rail，所有後續控制與功率都從這裡取能量。',
-    color: '#ff5f7a',
-  },
-  {
-    id: 'vref',
-    label: 'Vref',
-    shortLabel: 'REF',
-    hole: '28K',
-    voltage: regulatorModel.value.vref,
-    current: regulatorModel.value.zenerCurrent,
-    power: regulatorModel.value.vref * regulatorModel.value.zenerCurrent,
-    description: '齊納二極體建立的參考點，後續頁次都能沿用這個量測節點。',
-    color: '#34d399',
-  },
-  {
-    id: 'vp',
-    label: 'V+',
-    shortLabel: 'V+',
-    hole: '33I',
-    voltage: regulatorModel.value.vplus,
-    current: regulatorModel.value.feedbackCurrent * 0.1,
-    power: regulatorModel.value.vplus * regulatorModel.value.feedbackCurrent * 0.1,
-    description: 'UA741 同相輸入，主要接收 Vref。',
-    color: '#67e8f9',
-  },
-  {
-    id: 'vm',
-    label: 'V−',
-    shortLabel: 'V-',
-    hole: '32I',
-    voltage: regulatorModel.value.vminus,
-    current: regulatorModel.value.feedbackCurrent,
-    power: regulatorModel.value.vminus * regulatorModel.value.feedbackCurrent,
-    description: 'UA741 反相輸入，代表回授分壓回來的輸出狀態。',
-    color: '#fbbf24',
-  },
-  {
-    id: 'out741',
-    label: '741 OUT',
-    shortLabel: 'OUT',
-    hole: '33L',
-    voltage: regulatorModel.value.opAmpOut,
-    current: regulatorModel.value.baseCurrent,
-    power: regulatorModel.value.opAmpOut * regulatorModel.value.baseCurrent,
-    description: '741 輸出修正訊號，再經 1k 電阻推向 NPN base。',
-    color: '#f472b6',
-  },
-  {
-    id: 'base',
-    label: 'NPN Base',
-    shortLabel: 'B',
-    hole: '41N',
-    voltage: regulatorModel.value.baseVoltage,
-    current: regulatorModel.value.baseCurrent,
-    power: regulatorModel.value.baseVoltage * regulatorModel.value.baseCurrent,
-    description: 'NPN 控制端，Base 電位決定輸出端會被推到哪裡。',
-    color: '#a78bfa',
-  },
-  {
-    id: 'vl',
-    label: 'VL',
-    shortLabel: 'VL',
-    hole: '42N',
-    voltage: regulatorModel.value.vout,
-    current: loadCurrent.value,
-    power: regulatorModel.value.vout * loadCurrent.value,
-    description: '實際輸出電壓節點，也是後續第 9 頁量測展示可以直接延用的主節點。',
-    color: '#38bdf8',
-  },
-  {
-    id: 'rl',
-    label: 'RL',
-    shortLabel: 'RL',
-    hole: '42Q',
-    voltage: regulatorModel.value.vout,
-    current: loadCurrent.value,
-    power: regulatorModel.value.vout * loadCurrent.value,
-    description: '負載支路，調高電流時會最直接拉動整個閉迴路進入修正。',
-    color: '#fb923c',
-  },
-])
-
 const boardNodes = computed(() => {
-  return measurementNodes.value
-    .map((node) => {
-      const boardHole = boardHoleLookup.value.get(node.hole.toUpperCase())
-      return {
-        ...node,
-        anchor: boardHole?.anchor || null,
-      }
-    })
+  const nodes = [
+    {
+      id: 'vin',
+      label: 'VIN',
+      shortLabel: 'VIN',
+      hole: '32topRed',
+      voltage: vin.value,
+      current: regulatorModel.value.supplyCurrent,
+      power: vin.value * regulatorModel.value.supplyCurrent,
+      color: '#ff5f7a',
+    },
+    {
+      id: 'vref',
+      label: 'Vref',
+      shortLabel: 'REF',
+      hole: '28K',
+      voltage: regulatorModel.value.vref,
+      current: regulatorModel.value.zenerCurrent,
+      power: regulatorModel.value.vref * regulatorModel.value.zenerCurrent,
+      color: '#34d399',
+    },
+    {
+      id: 'vp',
+      label: 'V+',
+      shortLabel: 'V+',
+      hole: '33I',
+      voltage: regulatorModel.value.vplus,
+      current: regulatorModel.value.feedbackCurrent * 0.1,
+      power: regulatorModel.value.vplus * regulatorModel.value.feedbackCurrent * 0.1,
+      color: '#67e8f9',
+    },
+    {
+      id: 'vm',
+      label: 'V−',
+      shortLabel: 'V-',
+      hole: '32I',
+      voltage: regulatorModel.value.vminus,
+      current: regulatorModel.value.feedbackCurrent,
+      power: regulatorModel.value.vminus * regulatorModel.value.feedbackCurrent,
+      color: '#fbbf24',
+    },
+    {
+      id: 'out741',
+      label: '741 OUT',
+      shortLabel: 'OUT',
+      hole: '33L',
+      voltage: regulatorModel.value.opAmpOut,
+      current: regulatorModel.value.baseCurrent,
+      power: regulatorModel.value.opAmpOut * regulatorModel.value.baseCurrent,
+      color: '#f472b6',
+    },
+    {
+      id: 'base',
+      label: 'NPN Base',
+      shortLabel: 'B',
+      hole: '41N',
+      voltage: regulatorModel.value.baseVoltage,
+      current: regulatorModel.value.baseCurrent,
+      power: regulatorModel.value.baseVoltage * regulatorModel.value.baseCurrent,
+      color: '#a78bfa',
+    },
+    {
+      id: 'vl',
+      label: 'VL',
+      shortLabel: 'VL',
+      hole: '42N',
+      voltage: regulatorModel.value.vout,
+      current: loadCurrent.value,
+      power: regulatorModel.value.vout * loadCurrent.value,
+      color: '#38bdf8',
+    },
+    {
+      id: 'rl',
+      label: 'RL',
+      shortLabel: 'RL',
+      hole: '42Q',
+      voltage: regulatorModel.value.vout,
+      current: loadCurrent.value,
+      power: regulatorModel.value.vout * loadCurrent.value,
+      color: '#fb923c',
+    },
+  ]
+
+  return nodes
+    .map((node) => ({
+      ...node,
+      anchor: boardHoleLookup.value.get(node.hole.toUpperCase())?.anchor || null,
+    }))
     .filter((node) => node.anchor)
 })
 
 const selectedMeasurement = computed(() => {
-  return boardNodes.value.find((node) => node.id === selectedNodeId.value) ?? boardNodes.value[0] ?? null
+  return boardNodes.value.find((node) => node.id === selectedNodeId.value) || boardNodes.value[0] || null
 })
 
-const probeSvg = computed(() => {
-  if (!probePackage.value?.svgText) {
-    return ''
+const pendingWireAnchor = computed(() => {
+  if (!pendingWireStart.value) {
+    return null
   }
 
-  return tintProbeSvg(probePackage.value.svgText)
+  return boardHoleLookup.value.get(pendingWireStart.value.toUpperCase())?.anchor || null
 })
 
-const sceneSvg = computed(() => {
-  if (!boardPackage.value) {
-    return ''
+const renderedWires = computed(() => {
+  return wires.value
+    .map((wire) => {
+      const start = boardHoleLookup.value.get(wire.from.toUpperCase())?.anchor
+      const end = boardHoleLookup.value.get(wire.to.toUpperCase())?.anchor
+      if (!start || !end) {
+        return null
+      }
+
+      return {
+        ...wire,
+        path: orthogonalPath(start, end),
+      }
+    })
+    .filter(Boolean)
+})
+
+const activeSelectionLabel = computed(() => {
+  if (selectedWireId.value) {
+    return '已選擇導線'
   }
 
-  return buildSceneSvg({
-    boardPackage: boardPackage.value,
-    boardHoleLookup: boardHoleLookup.value,
-    placedParts: placedParts.value,
-    boardNodes: boardNodes.value,
-    selectedNodeId: selectedNodeId.value,
-  })
+  if (selectedPartId.value) {
+    return renderedParts.value.find((part) => part.id === selectedPartId.value)?.label || '已選擇元件'
+  }
+
+  return '選擇元件'
 })
 
 onMounted(async () => {
   try {
     loadingAssets.value = true
     packages.value = await loadPublicFritzingPackages()
-    if (!selectedNodeId.value) {
-      selectedNodeId.value = 'vl'
-    }
+    resetPlacements()
+    window.addEventListener('keydown', handleKeyDown)
   } catch (error) {
     loadError.value = error instanceof Error ? error.message : String(error)
   } finally {
@@ -471,53 +500,74 @@ onMounted(async () => {
   }
 })
 
+onUnmounted(() => {
+  stopDrag()
+  window.removeEventListener('keydown', handleKeyDown)
+})
+
+function handleKeyDown(event) {
+  if (event.key !== 'Delete') {
+    return
+  }
+
+  if (pendingWireStart.value) {
+    pendingWireStart.value = ''
+    return
+  }
+
+  if (selectedWireId.value) {
+    wires.value = wires.value.filter((wire) => wire.id !== selectedWireId.value)
+    selectedWireId.value = ''
+    return
+  }
+
+  if (selectedPartId.value) {
+    partHidden[selectedPartId.value] = true
+    selectedPartId.value = ''
+  }
+}
+
+function resetPlacements() {
+  PART_LAYOUTS.forEach((layout) => {
+    partPlacements[layout.id] = { ...layout.holes }
+    partHidden[layout.id] = false
+  })
+
+  selectedPartId.value = PART_LAYOUTS[0].id
+  selectedWireId.value = ''
+  dragState.value = null
+  pendingWireStart.value = ''
+  wires.value = DEFAULT_WIRES.map((wire) => ({ ...wire }))
+  nextWireId = 1
+}
+
+function clearUserWires() {
+  wires.value = wires.value.filter((wire) => !wire.userCreated)
+  pendingWireStart.value = ''
+  selectedWireId.value = ''
+}
+
+function toggleWireMode() {
+  wireMode.value = !wireMode.value
+  pendingWireStart.value = ''
+  selectedWireId.value = ''
+  if (wireMode.value) {
+    stopDrag()
+  }
+}
+
+function selectWire(wireId) {
+  selectedWireId.value = wireId
+  selectedPartId.value = ''
+}
+
+function selectNode(nodeId) {
+  selectedNodeId.value = nodeId
+  selectedWireId.value = ''
+}
+
 function findPackage(fragment) {
-  return packages.value.find((item) => item.moduleId.toLowerCase().includes(fragment.toLowerCase())) ?? null
-}
-
-function nodeStyle(node) {
-  const viewBox = boardViewBox.value
-  if (!viewBox || !node.anchor) {
-    return {}
-  }
-
-  return {
-    left: `${((node.anchor.x - viewBox.minX) / viewBox.width) * 100}%`,
-    top: `${((node.anchor.y - viewBox.minY) / viewBox.height) * 100}%`,
-    '--node-color': node.color,
-  }
-}
-
-function formatVoltage(value) {
-  return `${value.toFixed(2)} V`
-}
-
-function formatCurrent(value) {
-  if (Math.abs(value) < 1e-6) {
-    return '0 A'
-  }
-
-  if (Math.abs(value) < 1e-3) {
-    return `${(value * 1e6).toFixed(1)} µA`
-  }
-
-  if (Math.abs(value) < 1) {
-    return `${(value * 1e3).toFixed(value * 1e3 < 10 ? 2 : 1)} mA`
-  }
-
-  return `${value.toFixed(2)} A`
-}
-
-function formatPower(value) {
-  if (Math.abs(value) < 1e-3) {
-    return `${(value * 1e3).toFixed(1)} mW`
-  }
-
-  return `${value.toFixed(2)} W`
-}
-
-function clamp(value, min, max) {
-  return Math.min(max, Math.max(min, value))
+  return packages.value.find((item) => item.moduleId.toLowerCase().includes(fragment.toLowerCase())) || null
 }
 
 function parseViewBox(svgText) {
@@ -544,172 +594,46 @@ function parseViewBox(svgText) {
   }
 }
 
-function tintProbeSvg(svgText) {
-  const svgDoc = new DOMParser().parseFromString(svgText, 'image/svg+xml')
-  const svgRoot = svgDoc.documentElement
-  const styleEl = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'style')
-  styleEl.textContent = `
-    * {
-      filter: drop-shadow(0 0 6px rgba(0, 240, 255, 0.35));
-    }
-  `
-  svgRoot.insertBefore(styleEl, svgRoot.firstChild)
-  return new XMLSerializer().serializeToString(svgDoc)
-}
-
-function buildSceneSvg({ boardPackage, boardHoleLookup, placedParts, boardNodes, selectedNodeId }) {
-  const svgDoc = new DOMParser().parseFromString(boardPackage.svgText, 'image/svg+xml')
-  const svgRoot = svgDoc.documentElement
-  svgRoot.setAttribute('preserveAspectRatio', 'xMidYMid meet')
-
-  const styleEl = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'style')
-  styleEl.textContent = `
-    .runtime-wire {
-      fill: none;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      opacity: 0.92;
-    }
-    .runtime-wire.is-load {
-      stroke-dasharray: 11 9;
-      opacity: 0.76;
-    }
-    .runtime-label {
-      font-family: 'Courier New', monospace;
-      font-size: 3.2px;
-      font-weight: 700;
-      fill: #03111f;
-      paint-order: stroke;
-      stroke: rgba(255, 255, 255, 0.86);
-      stroke-width: 1px;
-      stroke-linejoin: round;
-    }
-    .runtime-node {
-      fill: rgba(3, 17, 31, 0.22);
-      stroke-width: 1.4px;
-    }
-    .runtime-node.is-active {
-      fill: rgba(255, 255, 255, 0.12);
-      stroke-width: 2px;
-    }
-    .part-shadow {
-      opacity: 0.18;
-      filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.24));
-    }
-  `
-  svgRoot.insertBefore(styleEl, svgRoot.firstChild)
-
-  const overlayGroup = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'g')
-  overlayGroup.setAttribute('data-layer', 'runtime-overlay')
-
-  buildWireLayer(svgDoc, overlayGroup, boardHoleLookup)
-  buildPlacedPartLayer(svgDoc, overlayGroup, placedParts, boardHoleLookup)
-  buildNodeLayer(svgDoc, overlayGroup, boardNodes, selectedNodeId)
-
-  svgRoot.appendChild(overlayGroup)
-  return new XMLSerializer().serializeToString(svgDoc)
-}
-
-function buildWireLayer(svgDoc, overlayGroup, boardHoleLookup) {
-  const wires = [
-    { from: '25topRed', to: '32topRed', color: '#ff5f7a', width: 3.6 },
-    { from: '25topRed', to: '28K', color: '#ff8c42', width: 3.2 },
-    { from: '28M', to: '28bottomBlue', color: '#67e8f9', width: 3.1 },
-    { from: '28K', to: '33I', color: '#34d399', width: 3.1 },
-    { from: '32L', to: '32topRed', color: '#ff5f7a', width: 3.1 },
-    { from: '34I', to: '34bottomBlue', color: '#67e8f9', width: 3.1 },
-    { from: '32I', to: '39Q', color: '#fbbf24', width: 3.1 },
-    { from: '33L', to: '41N', color: '#f472b6', width: 3.2 },
-    { from: '40N', to: '40topRed', color: '#ff5f7a', width: 3.4 },
-    { from: '42N', to: '42Q', color: '#38bdf8', width: 3.4 },
-    { from: '42Q', to: '42bottomBlue', color: '#fb923c', width: 3.1, load: true },
-  ]
-
-  const wireLayer = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'g')
-  wireLayer.setAttribute('data-layer', 'wires')
-
-  wires.forEach((wire) => {
-    const start = boardHoleLookup.get(wire.from.toUpperCase())?.anchor
-    const end = boardHoleLookup.get(wire.to.toUpperCase())?.anchor
-    if (!start || !end) {
-      return
-    }
-
-    const path = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'path')
-    path.setAttribute('d', orthogonalPath(start, end))
-    path.setAttribute('class', `runtime-wire${wire.load ? ' is-load' : ''}`)
-    path.setAttribute('stroke', wire.color)
-    path.setAttribute('stroke-width', `${wire.width}`)
-    wireLayer.appendChild(path)
-  })
-
-  overlayGroup.appendChild(wireLayer)
-}
-
-function buildPlacedPartLayer(svgDoc, overlayGroup, placedParts, boardHoleLookup) {
-  const partLayer = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'g')
-  partLayer.setAttribute('data-layer', 'parts')
-
-  placedParts.forEach((item) => {
-    const partGroup = buildPlacedPartGroup(svgDoc, item, boardHoleLookup)
-    if (partGroup) {
-      partLayer.appendChild(partGroup)
-    }
-
-    const labelAnchor = averagePlacementAnchor(item, boardHoleLookup)
-    if (labelAnchor) {
-      const label = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'text')
-      label.setAttribute('x', `${labelAnchor.x + 5}`)
-      label.setAttribute('y', `${labelAnchor.y - 4}`)
-      label.setAttribute('class', 'runtime-label')
-      label.textContent = item.label
-      partLayer.appendChild(label)
-    }
-  })
-
-  overlayGroup.appendChild(partLayer)
-}
-
-function buildPlacedPartGroup(svgDoc, item, boardHoleLookup) {
-  const partPackage = item.package
-  if (!partPackage?.svgText) {
-    return null
+function getSvgMarkupInfo(partPackage) {
+  if (svgMarkupCache.has(partPackage.key)) {
+    return svgMarkupCache.get(partPackage.key)
   }
 
-  const connectorPairs = partPackage.connectors
+  const svgDoc = new DOMParser().parseFromString(partPackage.svgText, 'image/svg+xml')
+  const svgRoot = svgDoc.documentElement
+  svgRoot.removeAttribute('width')
+  svgRoot.removeAttribute('height')
+
+  const bounds = parseViewBox(partPackage.svgText) || { minX: 0, minY: 0, width: 12, height: 12 }
+  const info = {
+    innerSvg: svgRoot.innerHTML,
+    bounds,
+  }
+
+  svgMarkupCache.set(partPackage.key, info)
+  return info
+}
+
+function buildPartTransform(part, holeLookup) {
+  const connectorPairs = part.package.connectors
     .map((connector) => {
-      const holeName = item.holes[connector.id]
-      const boardHole = holeName ? boardHoleLookup.get(holeName.toUpperCase()) : null
-      if (!connector.anchor || !boardHole?.anchor) {
+      const holeName = part.holes[connector.id]
+      const targetAnchor = holeName ? holeLookup.get(holeName.toUpperCase())?.anchor : null
+      if (!connector.anchor || !targetAnchor) {
         return null
       }
 
       return {
         source: connector.anchor,
-        target: boardHole.anchor,
+        target: targetAnchor,
       }
     })
     .filter(Boolean)
 
   if (connectorPairs.length === 0) {
-    return null
+    return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }
   }
 
-  const transform = buildSimilarityTransform(connectorPairs)
-  const partDoc = new DOMParser().parseFromString(partPackage.svgText, 'image/svg+xml')
-  const partRoot = partDoc.documentElement
-  const group = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'g')
-  group.setAttribute('transform', matrixToString(transform))
-  group.setAttribute('class', 'part-shadow')
-
-  partRoot.childNodes.forEach((node) => {
-    group.appendChild(node.cloneNode(true))
-  })
-
-  return group
-}
-
-function buildSimilarityTransform(connectorPairs) {
   if (connectorPairs.length === 1) {
     const pair = connectorPairs[0]
     return {
@@ -756,77 +680,272 @@ function matrixToString(transform) {
   return `matrix(${transform.a} ${transform.b} ${transform.c} ${transform.d} ${transform.e} ${transform.f})`
 }
 
-function averagePlacementAnchor(item, boardHoleLookup) {
-  const anchors = Object.values(item.holes)
-    .map((holeName) => boardHoleLookup.get(holeName.toUpperCase())?.anchor)
-    .filter(Boolean)
-
-  if (anchors.length === 0) {
-    return null
-  }
-
-  const sum = anchors.reduce(
-    (accumulator, anchor) => ({
-      x: accumulator.x + anchor.x,
-      y: accumulator.y + anchor.y,
-    }),
-    { x: 0, y: 0 },
-  )
-
+function applyDragOffset(transform, dx, dy) {
   return {
-    x: sum.x / anchors.length,
-    y: sum.y / anchors.length,
+    ...transform,
+    e: transform.e + dx,
+    f: transform.f + dy,
   }
 }
 
-function buildNodeLayer(svgDoc, overlayGroup, boardNodes, selectedNodeId) {
-  const nodeLayer = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'g')
-  nodeLayer.setAttribute('data-layer', 'nodes')
+function applyMatrix(transform, point) {
+  return {
+    x: transform.a * point.x + transform.c * point.y + transform.e,
+    y: transform.b * point.x + transform.d * point.y + transform.f,
+  }
+}
 
-  boardNodes.forEach((node) => {
-    const circle = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'circle')
-    circle.setAttribute('cx', `${node.anchor.x}`)
-    circle.setAttribute('cy', `${node.anchor.y}`)
-    circle.setAttribute('r', node.id === selectedNodeId ? '5.2' : '4')
-    circle.setAttribute('class', `runtime-node${node.id === selectedNodeId ? ' is-active' : ''}`)
-    circle.setAttribute('stroke', node.color)
-    nodeLayer.appendChild(circle)
+function startPartDrag(event, partId) {
+  if (wireMode.value || loadingAssets.value) {
+    return
+  }
 
-    const label = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'text')
-    label.setAttribute('x', `${node.anchor.x + 5}`)
-    label.setAttribute('y', `${node.anchor.y - 5}`)
-    label.setAttribute('class', 'runtime-label')
-    label.textContent = node.shortLabel
-    nodeLayer.appendChild(label)
-  })
+  const pointer = pointerToBoard(event)
+  if (!pointer) {
+    return
+  }
 
-  overlayGroup.appendChild(nodeLayer)
+  selectedPartId.value = partId
+  selectedWireId.value = ''
+  dragState.value = {
+    partId,
+    startX: pointer.x,
+    startY: pointer.y,
+    dx: 0,
+    dy: 0,
+  }
+
+  window.addEventListener('pointermove', handlePointerMove)
+  window.addEventListener('pointerup', handlePointerUp)
+}
+
+function handlePointerMove(event) {
+  if (!dragState.value) {
+    return
+  }
+
+  const pointer = pointerToBoard(event)
+  if (!pointer) {
+    return
+  }
+
+  dragState.value = {
+    ...dragState.value,
+    dx: pointer.x - dragState.value.startX,
+    dy: pointer.y - dragState.value.startY,
+  }
+}
+
+function handlePointerUp() {
+  if (!dragState.value) {
+    stopDrag()
+    return
+  }
+
+  const renderedPart = renderedParts.value.find((part) => part.id === dragState.value.partId)
+  if (renderedPart) {
+    const snapped = snapPartToBoard(renderedPart)
+    if (snapped) {
+      partPlacements[renderedPart.id] = snapped
+    }
+  }
+
+  stopDrag()
+}
+
+function stopDrag() {
+  dragState.value = null
+  window.removeEventListener('pointermove', handlePointerMove)
+  window.removeEventListener('pointerup', handlePointerUp)
+}
+
+function snapPartToBoard(part) {
+  const holes = boardHoleList.value
+  if (holes.length === 0) {
+    return null
+  }
+
+  const transform = applyDragOffset(part.baseTransform, dragState.value?.dx || 0, dragState.value?.dy || 0)
+  const threshold = holePitch.value * 1.35
+  const used = new Set()
+  const mapping = {}
+
+  for (const connector of part.package.connectors) {
+    if (!connector.anchor) {
+      continue
+    }
+
+    const transformedAnchor = applyMatrix(transform, connector.anchor)
+    let bestHole = null
+    let bestDistance = Number.POSITIVE_INFINITY
+
+    for (const hole of holes) {
+      if (used.has(hole.name)) {
+        continue
+      }
+
+      const distance = Math.hypot(hole.anchor.x - transformedAnchor.x, hole.anchor.y - transformedAnchor.y)
+      if (distance < bestDistance) {
+        bestDistance = distance
+        bestHole = hole
+      }
+    }
+
+    if (!bestHole || bestDistance > threshold) {
+      return null
+    }
+
+    used.add(bestHole.name)
+    mapping[connector.id] = bestHole.name
+  }
+
+  return mapping
+}
+
+function handleBoardClick(event) {
+  if (!wireMode.value || !boardHoleList.value.length) {
+    return
+  }
+
+  const pointer = pointerToBoard(event)
+  if (!pointer) {
+    return
+  }
+
+  const targetHole = findNearestHole(pointer, holePitch.value * 0.85)
+  if (!targetHole) {
+    return
+  }
+
+  if (!pendingWireStart.value) {
+    pendingWireStart.value = targetHole.name
+    return
+  }
+
+  if (pendingWireStart.value === targetHole.name) {
+    pendingWireStart.value = ''
+    return
+  }
+
+  wires.value = [
+    ...wires.value,
+    {
+      id: `user-${nextWireId++}`,
+      from: pendingWireStart.value,
+      to: targetHole.name,
+      color: '#22d3ee',
+      width: 3.1,
+      userCreated: true,
+    },
+  ]
+  pendingWireStart.value = ''
+}
+
+function findNearestHole(point, threshold) {
+  let bestHole = null
+  let bestDistance = Number.POSITIVE_INFINITY
+
+  for (const hole of boardHoleList.value) {
+    const distance = Math.hypot(hole.anchor.x - point.x, hole.anchor.y - point.y)
+    if (distance < bestDistance) {
+      bestDistance = distance
+      bestHole = hole
+    }
+  }
+
+  return bestDistance <= threshold ? bestHole : null
+}
+
+function pointerToBoard(event) {
+  const svg = overlaySvgRef.value
+  const viewBox = boardViewBox.value
+  if (!svg || !viewBox) {
+    return null
+  }
+
+  const rect = svg.getBoundingClientRect()
+  if (!rect.width || !rect.height) {
+    return null
+  }
+
+  return {
+    x: viewBox.minX + ((event.clientX - rect.left) / rect.width) * viewBox.width,
+    y: viewBox.minY + ((event.clientY - rect.top) / rect.height) * viewBox.height,
+  }
+}
+
+function estimateHolePitch(holes) {
+  if (holes.length < 2) {
+    return 10
+  }
+
+  const sample = holes.slice(0, 120)
+  let minDistance = Number.POSITIVE_INFINITY
+
+  for (let index = 0; index < sample.length; index += 1) {
+    for (let inner = index + 1; inner < sample.length; inner += 1) {
+      const left = sample[index].anchor
+      const right = sample[inner].anchor
+      const distance = Math.hypot(left.x - right.x, left.y - right.y)
+      if (distance > 0.1 && distance < minDistance) {
+        minDistance = distance
+      }
+    }
+  }
+
+  return Number.isFinite(minDistance) ? minDistance : 10
 }
 
 function orthogonalPath(start, end) {
   const midX = start.x + (end.x - start.x) * 0.5
   return `M ${start.x} ${start.y} L ${midX} ${start.y} L ${midX} ${end.y} L ${end.x} ${end.y}`
 }
+
+function formatVoltage(value) {
+  return `${value.toFixed(2)} V`
+}
+
+function formatCurrent(value) {
+  if (Math.abs(value) < 1e-6) {
+    return '0 A'
+  }
+
+  if (Math.abs(value) < 1e-3) {
+    return `${(value * 1e6).toFixed(1)} µA`
+  }
+
+  if (Math.abs(value) < 1) {
+    return `${(value * 1e3).toFixed(value * 1e3 < 10 ? 2 : 1)} mA`
+  }
+
+  return `${value.toFixed(2)} A`
+}
+
+function formatPower(value) {
+  if (Math.abs(value) < 1e-3) {
+    return `${(value * 1e3).toFixed(1)} mW`
+  }
+
+  return `${value.toFixed(2)} W`
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value))
+}
 </script>
 
 <style scoped>
 .runtime-shell {
   display: grid;
-  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr) minmax(260px, 320px);
+  grid-template-columns: minmax(250px, 300px) minmax(0, 1fr);
   gap: 18px;
-  align-items: stretch;
+  align-items: start;
   min-height: 760px;
 }
 
-.hud-column,
-.board-column {
-  min-width: 0;
-}
-
-.hud-column {
+.control-column {
   display: grid;
   gap: 14px;
-  align-content: start;
 }
 
 .panel-card {
@@ -852,46 +971,7 @@ function orthogonalPath(start, end) {
   pointer-events: none;
 }
 
-.panel-head h3,
-.panel-card strong,
-.panel-card p,
-.state-note,
-.meter-note,
-.node-row span,
-.node-row strong,
-.node-row small {
-  position: relative;
-  z-index: 1;
-}
-
-.eyebrow,
-.badge {
-  font-family: 'Courier New', monospace;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.eyebrow {
-  margin: 0 0 8px;
-  color: #67e8f9;
-  font-size: 0.74rem;
-  font-weight: 800;
-}
-
-.panel-head h3 {
-  margin: 0;
-  color: #e7fbff;
-  font-size: 1.2rem;
-}
-
-.panel-head p:last-child {
-  margin: 12px 0 0;
-  color: #9eb5c8;
-  line-height: 1.68;
-}
-
-.card-head,
-.meter-topline {
+.card-head {
   position: relative;
   z-index: 1;
   display: flex;
@@ -907,6 +987,9 @@ function orthogonalPath(start, end) {
   color: #a5f3fc;
   font-size: 0.68rem;
   font-weight: 800;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 .badge-slate {
@@ -920,10 +1003,9 @@ function orthogonalPath(start, end) {
 }
 
 .control-card strong,
-.state-card strong,
-.parts-card strong,
-.node-card strong,
-.meter-topline strong {
+.meter-meta strong {
+  position: relative;
+  z-index: 1;
   color: #eff9ff;
 }
 
@@ -939,14 +1021,12 @@ function orthogonalPath(start, end) {
   gap: 8px;
 }
 
-.control-field span {
+.control-field span,
+.meter-row span,
+.meter-meta span {
   color: #8dd9ff;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 700;
-}
-
-.control-field strong {
-  font-size: 1rem;
 }
 
 .control-field input[type="range"] {
@@ -954,56 +1034,32 @@ function orthogonalPath(start, end) {
   accent-color: #00f0ff;
 }
 
-.state-grid {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 16px;
+.tool-btn {
+  border: 1px solid rgba(0, 240, 255, 0.14);
+  background: rgba(4, 16, 40, 0.82);
+  color: #e7fbff;
+  border-radius: 14px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: border-color 0.18s ease, transform 0.18s ease;
 }
 
-.state-grid article,
-.part-list article {
+.tool-btn:hover,
+.tool-btn.active {
+  border-color: rgba(0, 240, 255, 0.34);
+  transform: translateY(-1px);
+}
+
+.meter-row article {
   padding: 12px 14px;
   border-radius: 18px;
   background: rgba(4, 16, 40, 0.72);
   border: 1px solid rgba(0, 240, 255, 0.08);
 }
 
-.state-grid span,
-.part-list span {
-  display: block;
-  color: #7dd3fc;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.state-grid strong,
-.part-list strong {
+.meter-row strong {
   display: block;
   margin-top: 8px;
-}
-
-.state-note,
-.meter-note,
-.part-list small {
-  color: #9eb5c8;
-  line-height: 1.6;
-}
-
-.state-note {
-  margin: 14px 0 0;
-}
-
-.part-list {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  gap: 10px;
-  margin-top: 16px;
 }
 
 .board-column {
@@ -1015,7 +1071,7 @@ function orthogonalPath(start, end) {
 .board-frame {
   position: relative;
   width: 100%;
-  max-width: 980px;
+  max-width: 1100px;
   min-height: 620px;
   border-radius: 30px;
   border: 1px solid rgba(0, 240, 255, 0.16);
@@ -1037,15 +1093,20 @@ function orthogonalPath(start, end) {
   pointer-events: none;
 }
 
-.board-svg-stage {
+.board-base,
+.board-overlay {
   position: absolute;
   inset: 0;
+}
+
+.board-base {
   display: grid;
   place-items: center;
   padding: 18px;
 }
 
-.board-svg-stage :deep(svg) {
+.board-base :deep(svg),
+.board-overlay {
   width: 100%;
   height: 100%;
   display: block;
@@ -1065,155 +1126,145 @@ function orthogonalPath(start, end) {
   color: #fca5a5;
 }
 
-.node-hit {
-  position: absolute;
-  width: 34px;
-  height: 34px;
-  margin-left: -17px;
-  margin-top: -17px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--node-color) 72%, white);
-  background: color-mix(in srgb, var(--node-color) 28%, rgba(2, 8, 18, 0.28));
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 0 18px color-mix(in srgb, var(--node-color) 44%, transparent);
+.runtime-wire {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.92;
   cursor: pointer;
-  z-index: 2;
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 
-.node-hit:hover,
-.node-hit.active {
-  transform: scale(1.08);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 0 24px color-mix(in srgb, var(--node-color) 58%, transparent);
+.runtime-wire.is-user-wire {
+  stroke-dasharray: 11 9;
 }
 
-.node-hit span {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: #f8fbff;
-  font-size: 0.55rem;
+.runtime-wire.selected {
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.48));
+}
+
+.part-group {
+  cursor: grab;
+}
+
+.part-group.dragging {
+  cursor: grabbing;
+}
+
+.part-group.selected {
+  filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.35));
+}
+
+.part-hitbox {
+  fill: transparent;
+  stroke: rgba(0, 240, 255, 0);
+  pointer-events: all;
+}
+
+.measure-node {
+  cursor: pointer;
+}
+
+.measure-node text {
   font-family: 'Courier New', monospace;
-  font-weight: 800;
-  letter-spacing: 0.06em;
+  font-size: 3.2px;
+  font-weight: 700;
+  fill: #03111f;
+  paint-order: stroke;
+  stroke: rgba(255, 255, 255, 0.86);
+  stroke-width: 1px;
+  stroke-linejoin: round;
 }
 
-.meter-shell {
-  display: grid;
-  gap: 16px;
+.measure-node.active {
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.4));
 }
 
-.probe-visual {
-  position: relative;
-  z-index: 1;
-  padding: 10px 14px;
-  border-radius: 18px;
-  background: rgba(4, 16, 40, 0.72);
+.pending-hole {
+  fill: rgba(250, 204, 21, 0.28);
+  stroke: #fbbf24;
+  stroke-width: 1.6px;
 }
 
-.probe-visual :deep(svg) {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-
-.meter-screen {
-  position: relative;
-  z-index: 1;
-  padding: 18px;
-  border-radius: 20px;
-  border: 1px solid rgba(0, 240, 255, 0.14);
+.meter-float {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 3;
+  width: min(260px, calc(100% - 40px));
+  padding: 16px;
+  border-radius: 22px;
+  border: 1px solid rgba(0, 240, 255, 0.18);
   background:
     linear-gradient(180deg, rgba(1, 16, 28, 0.96), rgba(3, 24, 37, 0.94)),
     radial-gradient(circle at top, rgba(0, 240, 255, 0.08), transparent 42%);
-  box-shadow: inset 0 0 22px rgba(0, 240, 255, 0.08);
+  box-shadow: inset 0 0 22px rgba(0, 240, 255, 0.08), 0 18px 40px rgba(1, 8, 22, 0.28);
 }
 
-.screen-kicker {
-  margin: 0;
+.board-toolbar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.meter-meta {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  min-height: 34px;
+}
+
+.meter-tag {
   color: #7dd3fc;
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   font-weight: 800;
-  letter-spacing: 0.16em;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
-.screen-voltage {
-  display: block;
+.meter-hole {
+  margin-top: 8px;
+  color: #e7fbff;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.meter-voltage {
   margin-top: 10px;
   color: #bbf7d0;
   font-family: 'Courier New', monospace;
-  font-size: 2rem;
+  font-size: 1.8rem;
   line-height: 1;
   text-shadow: 0 0 14px rgba(52, 211, 153, 0.32);
 }
 
-.screen-divider {
-  height: 1px;
-  margin: 14px 0;
-  background: linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.36), transparent);
-}
-
-.screen-grid {
+.meter-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+  margin-top: 14px;
 }
 
-.screen-grid span {
+.meter-row span {
   display: block;
   color: #8dd9ff;
   font-size: 0.72rem;
   font-weight: 700;
 }
 
-.screen-grid strong {
-  display: block;
-  margin-top: 8px;
-  font-family: 'Courier New', monospace;
-}
-
-.node-list {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  gap: 10px;
-  margin-top: 16px;
-}
-
-.node-row {
-  display: grid;
-  gap: 6px;
-  text-align: left;
-  padding: 12px 14px;
-  border-radius: 18px;
-  border: 1px solid rgba(0, 240, 255, 0.08);
-  background: rgba(4, 16, 40, 0.68);
-  cursor: pointer;
-  transition: border-color 0.18s ease, transform 0.18s ease;
-}
-
-.node-row:hover,
-.node-row.active {
-  border-color: rgba(0, 240, 255, 0.28);
-  transform: translateY(-1px);
-}
-
-.node-row span {
-  color: #a5f3fc;
-  font-size: 0.74rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.node-row small {
-  color: #9eb5c8;
-}
-
 @media (max-width: 1280px) {
   .runtime-shell {
     grid-template-columns: 1fr;
+    min-height: 0;
+    gap: 16px;
+  }
+
+  .board-column {
+    order: 1;
+  }
+
+  .control-column {
+    order: 2;
   }
 
   .board-frame {
@@ -1222,18 +1273,75 @@ function orthogonalPath(start, end) {
 }
 
 @media (max-width: 720px) {
+  .runtime-shell {
+    gap: 12px;
+  }
+
   .panel-card {
     padding: 16px;
     border-radius: 22px;
   }
 
-  .state-grid,
-  .screen-grid {
-    grid-template-columns: 1fr;
+  .board-frame {
+    min-height: 440px;
+    border-radius: 24px;
+  }
+
+  .board-base,
+  .board-overlay {
+    inset: 0 0 190px 0;
+  }
+
+  .board-base {
+    padding: 12px;
+  }
+
+  .meter-float {
+    position: absolute;
+    top: auto;
+    right: 12px;
+    left: 12px;
+    bottom: 12px;
+    width: auto;
+  }
+
+  .meter-voltage {
+    font-size: 1.5rem;
+  }
+
+  .meter-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .board-toolbar {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .runtime-shell {
+    gap: 10px;
   }
 
   .board-frame {
-    min-height: 520px;
+    min-height: 400px;
+  }
+
+  .board-base,
+  .board-overlay {
+    inset: 0 0 210px 0;
+  }
+
+  .meter-row {
+    grid-template-columns: 1fr;
+  }
+
+  .board-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .meter-float {
+    padding: 14px;
   }
 }
 </style>
