@@ -3,3 +3,6 @@ dist
 .vite
 .DS_Store
 .vercel
+lab/node_modules
+lab/dist
+lab/.vite
