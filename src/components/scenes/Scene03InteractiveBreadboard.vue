@@ -32,8 +32,13 @@
           <svg
             ref="overlaySvgRef"
             class="board-overlay"
+            :class="{ placing: Boolean(pendingPlacementPartId), wiring: wireMode }"
             :viewBox="overlayViewBox"
             preserveAspectRatio="xMidYMid meet"
+            @pointerdown="handleBoardPointerDown"
+            @pointermove="handleBoardPointerMove"
+            @pointerup="handleBoardPointerUp"
+            @pointerleave="clearHoverPreview"
             @click="handleBoardClick"
           >
             <g class="wire-layer">
@@ -41,12 +46,50 @@
                 v-for="wire in renderedWires"
                 :key="wire.id"
                 class="runtime-wire"
-                :class="{ 'is-user-wire': wire.userCreated, selected: selectedWireId === wire.id }"
+                :class="{ selected: selectedWireId === wire.id }"
                 :d="wire.path"
                 :stroke="wire.color"
                 :stroke-width="wire.width"
                 @click.stop="selectWire(wire.id)"
               />
+
+              <path
+                v-if="wirePreviewPath"
+                class="runtime-wire wire-preview"
+                :d="wirePreviewPath"
+                stroke="#2563eb"
+                stroke-width="3.2"
+              />
+            </g>
+
+            <g v-if="placementPreview" class="preview-layer">
+              <g class="part-preview" :transform="matrixToString(placementPreview.transform)">
+                <rect
+                  v-if="placementPreview.bounds"
+                  class="part-hitbox"
+                  :x="placementPreview.bounds.minX"
+                  :y="placementPreview.bounds.minY"
+                  :width="placementPreview.bounds.width"
+                  :height="placementPreview.bounds.height"
+                  rx="2"
+                  ry="2"
+                />
+                <g v-html="placementPreview.innerSvg"></g>
+              </g>
+
+              <g class="placement-glow-layer">
+                <g v-for="anchor in placementPreview.targetAnchors" :key="anchor.key">
+                  <circle class="placement-glow-outer" :cx="anchor.x" :cy="anchor.y" r="8.2" />
+                  <circle class="placement-glow-inner" :cx="anchor.x" :cy="anchor.y" r="4.8" />
+                </g>
+              </g>
+            </g>
+
+            <g v-if="highlightedNetHoles.length" class="net-highlight-layer">
+              <g v-for="hole in highlightedNetHoles" :key="hole.name">
+                <circle class="net-highlight-outer" :cx="hole.anchor.x" :cy="hole.anchor.y" r="5.8" />
+                <circle class="net-highlight-inner" :cx="hole.anchor.x" :cy="hole.anchor.y" r="2.9" />
+              </g>
             </g>
 
             <g class="part-layer">
@@ -94,42 +137,110 @@
               />
             </g>
           </svg>
-
-          <div class="meter-float">
-            <div class="board-toolbar">
-              <button class="tool-btn" :class="{ active: wireMode }" @click="toggleWireMode">
-                {{ wireMode ? '插線 ON' : '插線 OFF' }}
-              </button>
-              <button class="tool-btn" @click="resetPlacements">重設元件</button>
-              <button class="tool-btn" @click="clearUserWires">清除新線</button>
-            </div>
-
-            <div class="meter-meta">
-              <span>{{ activeSelectionLabel }}</span>
-              <strong v-if="pendingWireStart">起點 {{ pendingWireStart }}</strong>
-              <strong v-else-if="selectedWireId">Delete 可刪線</strong>
-              <strong v-else-if="dragState">拖動中</strong>
-              <strong v-else>{{ regulatorModel.modeLabel }}</strong>
-            </div>
-
-            <div class="meter-tag">{{ selectedMeasurement?.label ?? '--' }}</div>
-            <div class="meter-hole">{{ selectedMeasurement?.hole ?? '--' }}</div>
-            <div class="meter-voltage">
-              {{ selectedMeasurement ? formatVoltage(selectedMeasurement.voltage) : '--' }}
-            </div>
-            <div class="meter-row">
-              <article>
-                <span>Current</span>
-                <strong>{{ selectedMeasurement ? formatCurrent(selectedMeasurement.current) : '--' }}</strong>
-              </article>
-              <article>
-                <span>Power</span>
-                <strong>{{ selectedMeasurement ? formatPower(selectedMeasurement.power) : '--' }}</strong>
-              </article>
-            </div>
-          </div>
         </template>
       </div>
+    </div>
+
+    <aside class="tool-column">
+      <div class="panel-card parts-card">
+        <div class="card-head">
+          <span class="badge">Parts</span>
+          <strong>元件窗口</strong>
+        </div>
+
+        <p class="panel-note">
+          {{ paletteDragState ? '拖到麵包板洞位後放開。' : pendingPlacementPartId ? '先點麵包板孔位放置元件。' : '從這裡拖元件到麵包板。' }}
+        </p>
+
+        <div class="part-list">
+          <button
+            v-for="part in partCatalog"
+            :key="part.id"
+            class="part-row"
+            :class="{ active: activePalettePartId === part.id, placed: Boolean(partPlacements[part.id]) }"
+            @pointerdown.prevent="startPaletteDrag($event, part.id)"
+            @click="selectPalettePart(part.id)"
+          >
+            <div class="part-thumb" v-html="part.previewSvg"></div>
+            <div class="part-copy">
+              <span>{{ part.kind }}</span>
+              <strong>{{ part.label }}</strong>
+              <small>{{ partStatusLabel(part.id) }}</small>
+            </div>
+          </button>
+        </div>
+
+        <div class="rotation-tools">
+          <button class="tool-btn" :disabled="!currentTargetPartId" @click="rotateTargetPart(-90)">↺ 90°</button>
+          <button class="tool-btn" :disabled="!currentTargetPartId" @click="rotateTargetPart(90)">↻ 90°</button>
+        </div>
+
+        <div class="board-toolbar">
+          <button class="tool-btn" :class="{ active: wireMode }" @click="toggleWireMode">
+            {{ wireMode ? '插線 ON' : '插線 OFF' }}
+          </button>
+          <button class="tool-btn" @click="resetPlacements">重設</button>
+          <button class="tool-btn" @click="clearWires">清線</button>
+        </div>
+      </div>
+
+      <div class="panel-card meter-shell">
+        <div class="card-head">
+          <span class="badge badge-slate">Inspector</span>
+          <strong>{{ activeSelectionLabel }}</strong>
+        </div>
+
+        <div class="inspector-meta">
+          <span>Mode</span>
+          <strong>{{ inspectorModeLabel }}</strong>
+          <small>{{ inspectorHint }}</small>
+        </div>
+
+        <div class="inspector-meta">
+          <span>Rotation</span>
+          <strong>{{ currentTargetPartId ? `${partStatusRotation(currentTargetPartId)}°` : '--' }}</strong>
+          <small>{{ selectedPartSummary }}</small>
+        </div>
+
+        <div class="inspector-meta">
+          <span>Continuity</span>
+          <strong>{{ continuitySummary.title }}</strong>
+          <small>{{ continuitySummary.detail }}</small>
+        </div>
+
+        <div class="inspector-actions">
+          <button class="tool-btn" :disabled="!selectedPartId" @click="removeSelectedPart">刪除元件</button>
+          <button class="tool-btn" :disabled="!selectedWireId" @click="removeSelectedWire">刪除導線</button>
+          <button class="tool-btn" :disabled="!hasCancelableAction" @click="clearSelectionState">取消</button>
+        </div>
+
+        <div class="meter-divider"></div>
+
+        <div class="card-head card-head-secondary">
+          <span class="badge badge-slate">Probe Screen</span>
+          <strong>{{ selectedMeasurement?.label ?? '--' }}</strong>
+        </div>
+
+        <div class="meter-hole">{{ selectedMeasurement?.hole ?? '--' }}</div>
+        <div class="meter-voltage">
+          {{ selectedMeasurement ? formatVoltage(selectedMeasurement.voltage) : '--' }}
+        </div>
+        <div class="meter-row">
+          <article>
+            <span>Current</span>
+            <strong>{{ selectedMeasurement ? formatCurrent(selectedMeasurement.current) : '--' }}</strong>
+          </article>
+          <article>
+            <span>Power</span>
+            <strong>{{ selectedMeasurement ? formatPower(selectedMeasurement.power) : '--' }}</strong>
+          </article>
+        </div>
+      </div>
+    </aside>
+
+    <div v-if="paletteDragState" class="palette-drag-ghost" :style="paletteGhostStyle">
+      <div class="part-thumb" v-html="paletteDragPart?.previewSvg || ''"></div>
+      <div class="drag-ghost-label">{{ paletteDragPart?.label || 'PART' }}</div>
     </div>
   </section>
 </template>
@@ -142,114 +253,37 @@ const loadingAssets = ref(true)
 const loadError = ref('')
 const packages = ref([])
 const selectedNodeId = ref('vl')
-const selectedPartId = ref('ua741')
+const selectedPartId = ref('')
 const selectedWireId = ref('')
+const pendingPlacementPartId = ref('')
 const vin = ref(12)
 const loadCurrent = ref(0.28)
 const wireMode = ref(false)
 const pendingWireStart = ref('')
 const dragState = ref(null)
+const hoverBoardPoint = ref(null)
+const wireDragState = ref(null)
+const paletteDragState = ref(null)
 const overlaySvgRef = ref(null)
 const partPlacements = reactive({})
-const partHidden = reactive({})
+const partRotations = reactive({})
 const wires = ref([])
-let nextWireId = 1
 
-const DEFAULT_WIRES = [
-  { id: 'wire-1', from: '25topRed', to: '32topRed', color: '#ff5f7a', width: 3.6, userCreated: false },
-  { id: 'wire-2', from: '25topRed', to: '28K', color: '#ff8c42', width: 3.2, userCreated: false },
-  { id: 'wire-3', from: '28M', to: '28bottomBlue', color: '#67e8f9', width: 3.1, userCreated: false },
-  { id: 'wire-4', from: '28K', to: '33I', color: '#34d399', width: 3.1, userCreated: false },
-  { id: 'wire-5', from: '32L', to: '32topRed', color: '#ff5f7a', width: 3.1, userCreated: false },
-  { id: 'wire-6', from: '34I', to: '34bottomBlue', color: '#67e8f9', width: 3.1, userCreated: false },
-  { id: 'wire-7', from: '32I', to: '39Q', color: '#fbbf24', width: 3.1, userCreated: false },
-  { id: 'wire-8', from: '33L', to: '41N', color: '#f472b6', width: 3.2, userCreated: false },
-  { id: 'wire-9', from: '40N', to: '40topRed', color: '#ff5f7a', width: 3.4, userCreated: false },
-  { id: 'wire-10', from: '42N', to: '42Q', color: '#38bdf8', width: 3.4, userCreated: false },
-  { id: 'wire-11', from: '42Q', to: '42bottomBlue', color: '#fb923c', width: 3.1, userCreated: false },
-]
+let nextWireId = 1
+let suppressPaletteClick = false
 
 const PART_LAYOUTS = [
-  {
-    id: 'ua741',
-    match: 'custom_ua741_labeled_2x_tight',
-    kind: 'IC',
-    label: 'UA741',
-    holes: {
-      connector0: '31I',
-      connector1: '32I',
-      connector2: '33I',
-      connector3: '34I',
-      connector4: '34L',
-      connector5: '33L',
-      connector6: '32L',
-      connector7: '31L',
-    },
-  },
-  {
-    id: 'npn',
-    match: 'custom_npn_to92_cbe_2x_cbe_inside_fixed',
-    kind: 'Transistor',
-    label: 'NPN 2SC1384',
-    holes: {
-      connector0: '40N',
-      connector1: '41N',
-      connector2: '42N',
-    },
-  },
-  {
-    id: 'zener',
-    match: 'custom_zener_u_6v2_2x_ultrashort',
-    kind: 'Reference',
-    label: 'ZD 6.2V',
-    holes: {
-      connector0: '28M',
-      connector1: '28K',
-    },
-  },
-  {
-    id: 'rz',
-    match: 'custom_resistor_470r_u_2x_ultrashort_center_label',
-    kind: 'Resistor',
-    label: '470R',
-    holes: {
-      connector0: '25topRed',
-      connector1: '28K',
-    },
-  },
-  {
-    id: 'rb',
-    match: 'custom_resistor_1k_u_2x_ultrashort_center_label',
-    kind: 'Resistor',
-    label: '1k',
-    holes: {
-      connector0: '33L',
-      connector1: '41N',
-    },
-  },
-  {
-    id: 'r1',
-    match: 'custom_resistor_4k7_u_2x_ultrashort_center_label',
-    kind: 'Resistor',
-    label: '4.7k',
-    holes: {
-      connector0: '42P',
-      connector1: '39Q',
-    },
-  },
-  {
-    id: 'r2',
-    match: 'custom_resistor_10k_u_2x_ultrashort_center_label',
-    kind: 'Resistor',
-    label: '10k',
-    holes: {
-      connector0: '39Q',
-      connector1: '39bottomBlue',
-    },
-  },
+  { id: 'ua741', match: 'custom_ua741_labeled_2x_tight', kind: 'IC', label: 'UA741' },
+  { id: 'npn', match: 'custom_npn_to92_cbe_2x_cbe_inside_fixed', kind: 'Transistor', label: 'NPN 2SC1384' },
+  { id: 'zener', match: 'custom_zener_u_6v2_2x_ultrashort', kind: 'Reference', label: 'ZD 6.2V' },
+  { id: 'rz', match: 'custom_resistor_470r_u_2x_ultrashort_center_label', kind: 'Resistor', label: '470R' },
+  { id: 'rb', match: 'custom_resistor_1k_u_2x_ultrashort_center_label', kind: 'Resistor', label: '1k' },
+  { id: 'r1', match: 'custom_resistor_4k7_u_2x_ultrashort_center_label', kind: 'Resistor', label: '4.7k' },
+  { id: 'r2', match: 'custom_resistor_10k_u_2x_ultrashort_center_label', kind: 'Resistor', label: '10k' },
 ]
 
 const svgMarkupCache = new Map()
+const svgPreviewCache = new Map()
 
 const boardPackage = computed(() => findPackage('custom_broad_breadboard_20row_clear'))
 
@@ -259,6 +293,41 @@ const boardHoleList = computed(() => {
 
 const boardHoleLookup = computed(() => {
   return new Map(boardHoleList.value.map((connector) => [connector.name.toUpperCase(), connector]))
+})
+
+const occupiedHoleOwners = computed(() => {
+  const owners = new Map()
+
+  Object.entries(partPlacements).forEach(([partId, mapping]) => {
+    Object.values(mapping || {}).forEach((holeName) => {
+      if (!holeName) {
+        return
+      }
+
+      owners.set(holeName.toUpperCase(), partId)
+    })
+  })
+
+  return owners
+})
+
+const conductiveGroups = computed(() => {
+  const groups = new Map()
+
+  boardHoleList.value.forEach((hole) => {
+    const key = getHoleContinuityKey(hole.name)
+    if (!key) {
+      return
+    }
+
+    if (!groups.has(key)) {
+      groups.set(key, [])
+    }
+
+    groups.get(key).push(hole)
+  })
+
+  return groups
 })
 
 const boardViewBox = computed(() => parseViewBox(boardPackage.value?.svgText || ''))
@@ -290,15 +359,24 @@ const boardSvgBase = computed(() => {
 
 const holePitch = computed(() => estimateHolePitch(boardHoleList.value))
 
-const placedParts = computed(() => {
-  return PART_LAYOUTS.map((layout) => ({
-    ...layout,
-    package: findPackage(layout.match),
-    holes: partPlacements[layout.id] || { ...layout.holes },
-    hidden: Boolean(partHidden[layout.id]),
-  }))
+const partCatalog = computed(() => {
+  return PART_LAYOUTS
+    .map((layout) => ({
+      ...layout,
+      package: findPackage(layout.match),
+      previewSvg: findPackage(layout.match) ? getPreviewMarkup(findPackage(layout.match)) : '',
+    }))
     .filter((item) => item.package)
-    .filter((item) => !item.hidden)
+})
+
+const placedParts = computed(() => {
+  return partCatalog.value
+    .filter((item) => Boolean(partPlacements[item.id]))
+    .map((item) => ({
+      ...item,
+      holes: partPlacements[item.id],
+      rotation: partRotations[item.id] ?? 0,
+    }))
 })
 
 const renderedParts = computed(() => {
@@ -319,6 +397,75 @@ const renderedParts = computed(() => {
       displayTransform,
     }
   })
+})
+
+const placementPreview = computed(() => {
+  if (!pendingPlacementPartId.value || !hoverBoardPoint.value) {
+    return null
+  }
+
+  const targetHole = findNearestHole(hoverBoardPoint.value, holePitch.value * 0.9)
+  if (!targetHole) {
+    return null
+  }
+
+  const part = partCatalog.value.find((item) => item.id === pendingPlacementPartId.value)
+  if (!part) {
+    return null
+  }
+
+  const rotation = partRotations[part.id] ?? 0
+  const mapping = computePlacementFromAnchor(part, targetHole.name, rotation)
+  if (!mapping) {
+    return null
+  }
+
+  const { innerSvg, bounds } = getSvgMarkupInfo(part.package)
+  const targetAnchors = Object.entries(mapping)
+    .map(([connectorId, holeName]) => {
+      const connector = part.package.connectors.find((item) => item.id === connectorId)
+      const targetHole = boardHoleLookup.value.get(holeName.toUpperCase())
+      if (!connector?.anchor || !targetHole?.anchor) {
+        return null
+      }
+
+      return {
+        key: connectorId,
+        x: targetHole.anchor.x,
+        y: targetHole.anchor.y,
+      }
+    })
+    .filter(Boolean)
+
+  return {
+    innerSvg,
+    bounds,
+    transform: buildPartTransform({ ...part, holes: mapping, rotation }, boardHoleLookup.value),
+    targetAnchors,
+  }
+})
+
+const currentTargetPartId = computed(() => {
+  return pendingPlacementPartId.value || selectedPartId.value || ''
+})
+
+const activePalettePartId = computed(() => {
+  return pendingPlacementPartId.value || selectedPartId.value || ''
+})
+
+const paletteDragPart = computed(() => {
+  return paletteDragState.value ? partCatalog.value.find((item) => item.id === paletteDragState.value.partId) || null : null
+})
+
+const paletteGhostStyle = computed(() => {
+  if (!paletteDragState.value) {
+    return {}
+  }
+
+  return {
+    left: `${paletteDragState.value.clientX + 16}px`,
+    top: `${paletteDragState.value.clientY + 16}px`,
+  }
 })
 
 const regulatorModel = computed(() => {
@@ -450,6 +597,65 @@ const selectedMeasurement = computed(() => {
   return boardNodes.value.find((node) => node.id === selectedNodeId.value) || boardNodes.value[0] || null
 })
 
+const continuityState = computed(() => {
+  const keys = [...conductiveGroups.value.keys()]
+  const dsu = createDisjointSet(keys)
+
+  wires.value.forEach((wire) => {
+    const left = getHoleContinuityKey(wire.from)
+    const right = getHoleContinuityKey(wire.to)
+    if (left && right) {
+      dsu.union(left, right)
+    }
+  })
+
+  const rootToHoles = new Map()
+  conductiveGroups.value.forEach((holes, key) => {
+    const root = dsu.find(key)
+    if (!rootToHoles.has(root)) {
+      rootToHoles.set(root, [])
+    }
+
+    rootToHoles.get(root).push(...holes)
+  })
+
+  return {
+    findRoot(holeName) {
+      const key = getHoleContinuityKey(holeName)
+      return key ? dsu.find(key) : ''
+    },
+    holesFor(holeName) {
+      const root = this.findRoot(holeName)
+      return root ? rootToHoles.get(root) || [] : []
+    },
+  }
+})
+
+const highlightedNetHoles = computed(() => {
+  const focusHole = pendingWireStart.value || selectedMeasurement.value?.hole || ''
+  if (!focusHole) {
+    return []
+  }
+
+  return continuityState.value.holesFor(focusHole)
+})
+
+const continuitySummary = computed(() => {
+  const focusHole = pendingWireStart.value || selectedMeasurement.value?.hole || ''
+  if (!focusHole) {
+    return {
+      title: '--',
+      detail: '選擇量測點或開始插線後，顯示目前導通群組。',
+    }
+  }
+
+  const holes = continuityState.value.holesFor(focusHole)
+  return {
+    title: focusHole,
+    detail: `目前導通 ${holes.length} 個孔位。`,
+  }
+})
+
 const pendingWireAnchor = computed(() => {
   if (!pendingWireStart.value) {
     return null
@@ -469,22 +675,116 @@ const renderedWires = computed(() => {
 
       return {
         ...wire,
-        path: orthogonalPath(start, end),
+        path: routedWirePath(start, end, wire.via),
       }
     })
     .filter(Boolean)
 })
 
+const wirePreviewPath = computed(() => {
+  if (!wireDragState.value) {
+    return ''
+  }
+
+  const start = boardHoleLookup.value.get(wireDragState.value.startHole.toUpperCase())?.anchor
+  if (!start) {
+    return ''
+  }
+
+  const end = wireDragState.value.currentHole
+    ? boardHoleLookup.value.get(wireDragState.value.currentHole.toUpperCase())?.anchor
+    : wireDragState.value.currentPoint
+
+  if (!end) {
+    return ''
+  }
+
+  return routedWirePath(start, end, wireDragState.value.currentPoint)
+})
+
 const activeSelectionLabel = computed(() => {
+  if (pendingPlacementPartId.value) {
+    const part = partCatalog.value.find((item) => item.id === pendingPlacementPartId.value)
+    return part ? `待放置 ${part.label}` : '待放置元件'
+  }
+
   if (selectedWireId.value) {
     return '已選擇導線'
   }
 
   if (selectedPartId.value) {
-    return renderedParts.value.find((part) => part.id === selectedPartId.value)?.label || '已選擇元件'
+    const part = partCatalog.value.find((item) => item.id === selectedPartId.value)
+    return part ? `已選擇 ${part.label}` : '已選擇元件'
   }
 
-  return '選擇元件'
+  return '未選擇元件'
+})
+
+const inspectorHint = computed(() => {
+  if (paletteDragState.value) {
+    return '拖到合法洞位後放開，綠光會標示吸附點。'
+  }
+
+  if (pendingPlacementPartId.value) {
+    return '點麵包板孔位完成放置。'
+  }
+
+  if (selectedWireId.value) {
+    return 'Delete 可刪除目前導線。'
+  }
+
+  if (selectedPartId.value) {
+    return '元件只允許 0° / 90° / 180° / 270°，尺寸固定。'
+  }
+
+  return '先選元件，再點麵包板放置。'
+})
+
+const inspectorModeLabel = computed(() => {
+  if (paletteDragState.value) {
+    return 'DRAGGING PART'
+  }
+
+  if (pendingPlacementPartId.value) {
+    return 'PLACING PART'
+  }
+
+  if (wireMode.value) {
+    return pendingWireStart.value ? 'WIRING END' : 'WIRING START'
+  }
+
+  if (selectedWireId.value) {
+    return 'WIRE SELECTED'
+  }
+
+  if (selectedPartId.value) {
+    return 'PART SELECTED'
+  }
+
+  return 'IDLE'
+})
+
+const selectedPartSummary = computed(() => {
+  if (paletteDragState.value) {
+    return '從元件窗口拖曳到麵包板，放開即放置。'
+  }
+
+  if (pendingPlacementPartId.value) {
+    return '旋轉後會同步更新放置預覽。'
+  }
+
+  if (!selectedPartId.value || !partPlacements[selectedPartId.value]) {
+    return '元件尺寸固定，不允許縮放。'
+  }
+
+  const holes = Object.values(partPlacements[selectedPartId.value])
+  return holes.length ? `腳位：${holes.join(', ')}` : '元件尺寸固定，不允許縮放。'
+})
+
+const hasCancelableAction = computed(() => {
+  return Boolean(
+    pendingPlacementPartId.value || pendingWireStart.value || selectedPartId.value || selectedWireId.value || paletteDragState.value,
+  )
 })
 
 onMounted(async () => {
@@ -502,62 +802,240 @@ onMounted(async () => {
 
 onUnmounted(() => {
   stopDrag()
+  stopPaletteDrag()
   window.removeEventListener('keydown', handleKeyDown)
 })
 
 function handleKeyDown(event) {
-  if (event.key !== 'Delete') {
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    clearSelectionState()
     return
   }
 
-  if (pendingWireStart.value) {
-    pendingWireStart.value = ''
-    return
+  if (event.key === 'Delete') {
+    if (pendingWireStart.value) {
+      pendingWireStart.value = ''
+      return
+    }
+
+    if (selectedWireId.value) {
+      removeSelectedWire()
+      return
+    }
+
+    if (selectedPartId.value) {
+      removeSelectedPart()
+      return
+    }
   }
 
-  if (selectedWireId.value) {
-    wires.value = wires.value.filter((wire) => wire.id !== selectedWireId.value)
-    selectedWireId.value = ''
-    return
-  }
-
-  if (selectedPartId.value) {
-    partHidden[selectedPartId.value] = true
-    selectedPartId.value = ''
+  if ((event.key === 'r' || event.key === 'R') && currentTargetPartId.value) {
+    event.preventDefault()
+    rotateTargetPart(90)
   }
 }
 
 function resetPlacements() {
   PART_LAYOUTS.forEach((layout) => {
-    partPlacements[layout.id] = { ...layout.holes }
-    partHidden[layout.id] = false
+    delete partPlacements[layout.id]
+    partRotations[layout.id] = 0
   })
 
-  selectedPartId.value = PART_LAYOUTS[0].id
+  selectedPartId.value = ''
   selectedWireId.value = ''
+  pendingPlacementPartId.value = ''
   dragState.value = null
+  hoverBoardPoint.value = null
+  wireDragState.value = null
+  paletteDragState.value = null
   pendingWireStart.value = ''
-  wires.value = DEFAULT_WIRES.map((wire) => ({ ...wire }))
+  wireMode.value = false
+  wires.value = []
   nextWireId = 1
 }
 
-function clearUserWires() {
-  wires.value = wires.value.filter((wire) => !wire.userCreated)
+function clearWires() {
+  wires.value = []
   pendingWireStart.value = ''
   selectedWireId.value = ''
+}
+
+function clearSelectionState() {
+  pendingPlacementPartId.value = ''
+  pendingWireStart.value = ''
+  selectedPartId.value = ''
+  selectedWireId.value = ''
+  hoverBoardPoint.value = null
+  wireDragState.value = null
+  paletteDragState.value = null
+  if (wireMode.value) {
+    wireMode.value = false
+  }
+  stopDrag()
+  stopPaletteDrag()
 }
 
 function toggleWireMode() {
   wireMode.value = !wireMode.value
   pendingWireStart.value = ''
+  pendingPlacementPartId.value = ''
   selectedWireId.value = ''
-  if (wireMode.value) {
-    stopDrag()
+  hoverBoardPoint.value = null
+  wireDragState.value = null
+  stopDrag()
+  stopPaletteDrag()
+}
+
+function startPaletteDrag(event, partId) {
+  if (loadingAssets.value || partPlacements[partId]) {
+    return
+  }
+
+  suppressPaletteClick = true
+  pendingPlacementPartId.value = partId
+  selectedPartId.value = ''
+  selectedWireId.value = ''
+  wireMode.value = false
+  hoverBoardPoint.value = null
+  paletteDragState.value = {
+    partId,
+    clientX: event.clientX,
+    clientY: event.clientY,
+  }
+
+  window.addEventListener('pointermove', handlePalettePointerMove)
+  window.addEventListener('pointerup', handlePalettePointerUp)
+}
+
+function handlePalettePointerMove(event) {
+  if (!paletteDragState.value) {
+    return
+  }
+
+  paletteDragState.value = {
+    ...paletteDragState.value,
+    clientX: event.clientX,
+    clientY: event.clientY,
+  }
+
+  const pointer = pointerToBoard(event)
+  hoverBoardPoint.value = pointer
+}
+
+function handlePalettePointerUp(event) {
+  if (!paletteDragState.value) {
+    stopPaletteDrag()
+    return
+  }
+
+  const pointer = pointerToBoard(event)
+  if (pointer && pendingPlacementPartId.value) {
+    placePendingPart(pointer)
+  } else {
+    pendingPlacementPartId.value = ''
+    hoverBoardPoint.value = null
+  }
+
+  stopPaletteDrag()
+  window.setTimeout(() => {
+    suppressPaletteClick = false
+  }, 0)
+}
+
+function stopPaletteDrag() {
+  paletteDragState.value = null
+  hoverBoardPoint.value = null
+  window.removeEventListener('pointermove', handlePalettePointerMove)
+  window.removeEventListener('pointerup', handlePalettePointerUp)
+}
+
+function selectPalettePart(partId) {
+  if (suppressPaletteClick) {
+    suppressPaletteClick = false
+    return
+  }
+
+  selectedWireId.value = ''
+  wireMode.value = false
+
+  if (partPlacements[partId]) {
+    selectedPartId.value = partId
+    pendingPlacementPartId.value = ''
+    return
+  }
+
+  pendingPlacementPartId.value = partId
+  selectedPartId.value = ''
+}
+
+function partStatusLabel(partId) {
+  if (pendingPlacementPartId.value === partId) {
+    return `待放置 · ${partStatusRotation(partId)}°`
+  }
+
+  if (partPlacements[partId]) {
+    return `已放置 · ${partStatusRotation(partId)}°`
+  }
+
+  return `未放置 · ${partStatusRotation(partId)}°`
+}
+
+function partStatusRotation(partId) {
+  return normalizeRotation(partRotations[partId] ?? 0)
+}
+
+function rotateTargetPart(delta) {
+  const targetPartId = currentTargetPartId.value
+  if (!targetPartId) {
+    return
+  }
+
+  const nextRotation = normalizeRotation((partRotations[targetPartId] ?? 0) + delta)
+  partRotations[targetPartId] = nextRotation
+
+  if (!partPlacements[targetPartId]) {
+    return
+  }
+
+  const part = partCatalog.value.find((item) => item.id === targetPartId)
+  if (!part) {
+    return
+  }
+
+  const baseConnector = getBaseConnector(part)
+  if (!baseConnector) {
+    return
+  }
+
+  const anchorHoleName = partPlacements[targetPartId][baseConnector.id]
+  const mapping = computePlacementFromAnchor(part, anchorHoleName, nextRotation)
+  if (mapping) {
+    partPlacements[targetPartId] = mapping
   }
 }
 
 function selectWire(wireId) {
   selectedWireId.value = wireId
+  selectedPartId.value = ''
+  pendingPlacementPartId.value = ''
+}
+
+function removeSelectedWire() {
+  if (!selectedWireId.value) {
+    return
+  }
+
+  wires.value = wires.value.filter((wire) => wire.id !== selectedWireId.value)
+  selectedWireId.value = ''
+}
+
+function removeSelectedPart() {
+  if (!selectedPartId.value) {
+    return
+  }
+
+  delete partPlacements[selectedPartId.value]
   selectedPartId.value = ''
 }
 
@@ -614,65 +1092,49 @@ function getSvgMarkupInfo(partPackage) {
   return info
 }
 
+function getPreviewMarkup(partPackage) {
+  if (svgPreviewCache.has(partPackage.key)) {
+    return svgPreviewCache.get(partPackage.key)
+  }
+
+  const svgDoc = new DOMParser().parseFromString(partPackage.svgText, 'image/svg+xml')
+  const svgRoot = svgDoc.documentElement
+  svgRoot.removeAttribute('width')
+  svgRoot.removeAttribute('height')
+  svgRoot.setAttribute('preserveAspectRatio', 'xMidYMid meet')
+
+  const markup = new XMLSerializer().serializeToString(svgRoot)
+  svgPreviewCache.set(partPackage.key, markup)
+  return markup
+}
+
+function getBaseConnector(part) {
+  return part.package.connectors.find((connector) => connector.anchor) || null
+}
+
 function buildPartTransform(part, holeLookup) {
-  const connectorPairs = part.package.connectors
-    .map((connector) => {
-      const holeName = part.holes[connector.id]
-      const targetAnchor = holeName ? holeLookup.get(holeName.toUpperCase())?.anchor : null
-      if (!connector.anchor || !targetAnchor) {
-        return null
-      }
-
-      return {
-        source: connector.anchor,
-        target: targetAnchor,
-      }
-    })
-    .filter(Boolean)
-
-  if (connectorPairs.length === 0) {
+  const baseConnector = getBaseConnector(part)
+  if (!baseConnector) {
     return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }
   }
 
-  if (connectorPairs.length === 1) {
-    const pair = connectorPairs[0]
-    return {
-      a: 1,
-      b: 0,
-      c: 0,
-      d: 1,
-      e: pair.target.x - pair.source.x,
-      f: pair.target.y - pair.source.y,
-    }
+  const holeName = part.holes?.[baseConnector.id]
+  const target = holeName ? holeLookup.get(holeName.toUpperCase())?.anchor : null
+  if (!target) {
+    return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }
   }
 
-  const first = connectorPairs[0]
-  const second = connectorPairs[1]
-  const fromVector = {
-    x: second.source.x - first.source.x,
-    y: second.source.y - first.source.y,
-  }
-  const toVector = {
-    x: second.target.x - first.target.x,
-    y: second.target.y - first.target.y,
-  }
-
-  const fromLength = Math.hypot(fromVector.x, fromVector.y) || 1
-  const toLength = Math.hypot(toVector.x, toVector.y) || 1
-  const scale = toLength / fromLength
-  const angle = Math.atan2(toVector.y, toVector.x) - Math.atan2(fromVector.y, fromVector.x)
-  const cos = Math.cos(angle) * scale
-  const sin = Math.sin(angle) * scale
-  const e = first.target.x - (cos * first.source.x - sin * first.source.y)
-  const f = first.target.y - (sin * first.source.x + cos * first.source.y)
+  const angle = degreesToRadians(part.rotation ?? 0)
+  const cos = Math.cos(angle)
+  const sin = Math.sin(angle)
 
   return {
     a: cos,
     b: sin,
     c: -sin,
     d: cos,
-    e,
-    f,
+    e: target.x - (cos * baseConnector.anchor.x - sin * baseConnector.anchor.y),
+    f: target.y - (sin * baseConnector.anchor.x + cos * baseConnector.anchor.y),
   }
 }
 
@@ -696,7 +1158,7 @@ function applyMatrix(transform, point) {
 }
 
 function startPartDrag(event, partId) {
-  if (wireMode.value || loadingAssets.value) {
+  if (wireMode.value || pendingPlacementPartId.value || loadingAssets.value) {
     return
   }
 
@@ -766,7 +1228,7 @@ function snapPartToBoard(part) {
   }
 
   const transform = applyDragOffset(part.baseTransform, dragState.value?.dx || 0, dragState.value?.dy || 0)
-  const threshold = holePitch.value * 1.35
+  const threshold = holePitch.value * 0.92
   const used = new Set()
   const mapping = {}
 
@@ -781,6 +1243,11 @@ function snapPartToBoard(part) {
 
     for (const hole of holes) {
       if (used.has(hole.name)) {
+        continue
+      }
+
+      const owner = occupiedHoleOwners.value.get(hole.name.toUpperCase())
+      if (owner && owner !== part.id) {
         continue
       }
 
@@ -803,7 +1270,44 @@ function snapPartToBoard(part) {
 }
 
 function handleBoardClick(event) {
-  if (!wireMode.value || !boardHoleList.value.length) {
+  const pointer = pointerToBoard(event)
+  if (!pointer) {
+    return
+  }
+
+  if (pendingPlacementPartId.value) {
+    placePendingPart(pointer)
+    return
+  }
+
+  if (wireMode.value) {
+    return
+  }
+
+  selectedPartId.value = ''
+  selectedWireId.value = ''
+}
+
+function handleBoardPointerMove(event) {
+  const pointer = pointerToBoard(event)
+  if (!pointer) {
+    return
+  }
+
+  hoverBoardPoint.value = pointer
+
+  if (wireMode.value && wireDragState.value) {
+    const targetHole = findNearestHole(pointer, holePitch.value * 0.9)
+    wireDragState.value = {
+      ...wireDragState.value,
+      currentPoint: pointer,
+      currentHole: targetHole?.name || '',
+    }
+  }
+}
+
+function handleBoardPointerDown(event) {
+  if (!wireMode.value) {
     return
   }
 
@@ -812,33 +1316,134 @@ function handleBoardClick(event) {
     return
   }
 
-  const targetHole = findNearestHole(pointer, holePitch.value * 0.85)
-  if (!targetHole) {
+  const startHole = findNearestHole(pointer, holePitch.value * 0.9)
+  if (!startHole) {
     return
   }
 
-  if (!pendingWireStart.value) {
-    pendingWireStart.value = targetHole.name
+  pendingWireStart.value = startHole.name
+  wireDragState.value = {
+    startHole: startHole.name,
+    currentPoint: startHole.anchor,
+    currentHole: '',
+  }
+}
+
+function handleBoardPointerUp() {
+  if (!wireMode.value || !wireDragState.value) {
     return
   }
 
-  if (pendingWireStart.value === targetHole.name) {
-    pendingWireStart.value = ''
-    return
+  const startHole = wireDragState.value.startHole
+  const endHole = wireDragState.value.currentHole
+  const currentPoint = wireDragState.value.currentPoint
+
+  if (startHole && endHole && startHole !== endHole) {
+    const startAnchor = boardHoleLookup.value.get(startHole.toUpperCase())?.anchor
+    const endAnchor = boardHoleLookup.value.get(endHole.toUpperCase())?.anchor
+    wires.value = [
+      ...wires.value,
+      {
+        id: `user-${nextWireId++}`,
+        from: startHole,
+        to: endHole,
+        color: '#2563eb',
+        width: 3.1,
+        via: buildWireViaPoint(startAnchor, endAnchor, currentPoint),
+      },
+    ]
   }
 
-  wires.value = [
-    ...wires.value,
-    {
-      id: `user-${nextWireId++}`,
-      from: pendingWireStart.value,
-      to: targetHole.name,
-      color: '#22d3ee',
-      width: 3.1,
-      userCreated: true,
-    },
-  ]
   pendingWireStart.value = ''
+  wireDragState.value = null
+}
+
+function clearHoverPreview() {
+  hoverBoardPoint.value = null
+  if (wireMode.value && wireDragState.value) {
+    wireDragState.value = {
+      ...wireDragState.value,
+      currentHole: '',
+    }
+  }
+}
+
+function placePendingPart(pointer) {
+  const hole = findNearestHole(pointer, holePitch.value * 0.9)
+  if (!hole) {
+    return
+  }
+
+  const part = partCatalog.value.find((item) => item.id === pendingPlacementPartId.value)
+  if (!part) {
+    return
+  }
+
+  const rotation = partRotations[part.id] ?? 0
+  const mapping = computePlacementFromAnchor(part, hole.name, rotation)
+  if (!mapping) {
+    return
+  }
+
+  partPlacements[part.id] = mapping
+  selectedPartId.value = part.id
+  pendingPlacementPartId.value = ''
+  hoverBoardPoint.value = null
+}
+
+function computePlacementFromAnchor(part, anchorHoleName, rotation) {
+  const anchorHole = boardHoleLookup.value.get(anchorHoleName.toUpperCase())
+  const baseConnector = getBaseConnector(part)
+  if (!anchorHole || !baseConnector) {
+    return null
+  }
+
+  const angle = degreesToRadians(rotation)
+  const basePoint = rotatePoint(baseConnector.anchor, angle)
+  const used = new Set()
+  const mapping = {}
+  const threshold = holePitch.value * 0.92
+
+  for (const connector of part.package.connectors) {
+    if (!connector.anchor) {
+      continue
+    }
+
+    const rotated = rotatePoint(connector.anchor, angle)
+    const projected = {
+      x: rotated.x - basePoint.x + anchorHole.anchor.x,
+      y: rotated.y - basePoint.y + anchorHole.anchor.y,
+    }
+
+    let bestHole = null
+    let bestDistance = Number.POSITIVE_INFINITY
+
+    for (const hole of boardHoleList.value) {
+      if (used.has(hole.name)) {
+        continue
+      }
+
+      const owner = occupiedHoleOwners.value.get(hole.name.toUpperCase())
+      if (owner && owner !== part.id) {
+        continue
+      }
+
+      const distance = Math.hypot(hole.anchor.x - projected.x, hole.anchor.y - projected.y)
+      if (distance < bestDistance) {
+        bestDistance = distance
+        bestHole = hole
+      }
+    }
+
+    if (!bestHole || bestDistance > threshold) {
+      return null
+    }
+
+    used.add(bestHole.name)
+    mapping[connector.id] = bestHole.name
+  }
+
+  return mapping
 }
 
 function findNearestHole(point, threshold) {
@@ -896,9 +1501,112 @@ function estimateHolePitch(holes) {
   return Number.isFinite(minDistance) ? minDistance : 10
 }
 
-function orthogonalPath(start, end) {
-  const midX = start.x + (end.x - start.x) * 0.5
-  return `M ${start.x} ${start.y} L ${midX} ${start.y} L ${midX} ${end.y} L ${end.x} ${end.y}`
+function routedWirePath(start, end, via) {
+  if (!via) {
+    return `M ${start.x} ${start.y} L ${end.x} ${end.y}`
+  }
+
+  return `M ${start.x} ${start.y} L ${via.x} ${via.y} L ${end.x} ${end.y}`
+}
+
+function buildWireViaPoint(start, end, point) {
+  if (!start || !end || !point) {
+    return null
+  }
+
+  const total = Math.hypot(end.x - start.x, end.y - start.y)
+  const startDistance = Math.hypot(point.x - start.x, point.y - start.y)
+  const endDistance = Math.hypot(point.x - end.x, point.y - end.y)
+
+  if (startDistance < 6 || endDistance < 6 || total < 10) {
+    return null
+  }
+
+  return {
+    x: point.x,
+    y: point.y,
+  }
+}
+
+function getHoleContinuityKey(name) {
+  const match = /^(\d+)(topBlue|topRed|bottomBlue|bottomRed|[A-T])$/i.exec((name || '').trim())
+  if (!match) {
+    return ''
+  }
+
+  const row = match[1]
+  const suffix = match[2]
+  const normalized = suffix.toUpperCase()
+
+  if (normalized === 'TOPBLUE' || normalized === 'TOPRED' || normalized === 'BOTTOMBLUE' || normalized === 'BOTTOMRED') {
+    return `RAIL:${normalized}`
+  }
+
+  const band = getSignalBand(normalized)
+  return band ? `ROW:${row}:${band}` : ''
+}
+
+function getSignalBand(column) {
+  if ('ABCDE'.includes(column)) return 'A-E'
+  if ('FGHIJ'.includes(column)) return 'F-J'
+  if ('KLMNO'.includes(column)) return 'K-O'
+  if ('PQRST'.includes(column)) return 'P-T'
+  return ''
+}
+
+function createDisjointSet(keys) {
+  const parent = new Map(keys.map((key) => [key, key]))
+
+  return {
+    find(key) {
+      if (!key) {
+        return ''
+      }
+
+      if (!parent.has(key)) {
+        parent.set(key, key)
+      }
+
+      let root = parent.get(key)
+      while (root !== parent.get(root)) {
+        root = parent.get(root)
+      }
+
+      let current = key
+      while (current !== root) {
+        const next = parent.get(current)
+        parent.set(current, root)
+        current = next
+      }
+
+      return root
+    },
+    union(left, right) {
+      const leftRoot = this.find(left)
+      const rightRoot = this.find(right)
+      if (leftRoot && rightRoot && leftRoot !== rightRoot) {
+        parent.set(rightRoot, leftRoot)
+      }
+    },
+  }
+}
+
+function rotatePoint(point, angle) {
+  const cos = Math.cos(angle)
+  const sin = Math.sin(angle)
+  return {
+    x: cos * point.x - sin * point.y,
+    y: sin * point.x + cos * point.y,
+  }
+}
+
+function degreesToRadians(value) {
+  return (normalizeRotation(value) * Math.PI) / 180
+}
+
+function normalizeRotation(value) {
+  const normalized = value % 360
+  return normalized < 0 ? normalized + 360 : normalized
 }
 
 function formatVoltage(value) {
@@ -937,13 +1645,14 @@ function clamp(value, min, max) {
 <style scoped>
 .runtime-shell {
   display: grid;
-  grid-template-columns: minmax(250px, 300px) minmax(0, 1fr);
+  grid-template-columns: minmax(250px, 300px) minmax(0, 1fr) minmax(280px, 320px);
   gap: 18px;
   align-items: start;
   min-height: 760px;
 }
 
-.control-column {
+.control-column,
+.tool-column {
   display: grid;
   gap: 14px;
 }
@@ -997,13 +1706,9 @@ function clamp(value, min, max) {
   color: #e2e8f0;
 }
 
-.badge-amber {
-  background: rgba(251, 191, 36, 0.16);
-  color: #fde68a;
-}
-
 .control-card strong,
-.meter-meta strong {
+.tool-status strong,
+.meter-shell strong {
   position: relative;
   z-index: 1;
   color: #eff9ff;
@@ -1023,7 +1728,7 @@ function clamp(value, min, max) {
 
 .control-field span,
 .meter-row span,
-.meter-meta span {
+.tool-status span {
   color: #8dd9ff;
   font-size: 0.8rem;
   font-weight: 700;
@@ -1032,34 +1737,6 @@ function clamp(value, min, max) {
 .control-field input[type="range"] {
   width: 100%;
   accent-color: #00f0ff;
-}
-
-.tool-btn {
-  border: 1px solid rgba(0, 240, 255, 0.14);
-  background: rgba(4, 16, 40, 0.82);
-  color: #e7fbff;
-  border-radius: 14px;
-  padding: 10px 12px;
-  cursor: pointer;
-  transition: border-color 0.18s ease, transform 0.18s ease;
-}
-
-.tool-btn:hover,
-.tool-btn.active {
-  border-color: rgba(0, 240, 255, 0.34);
-  transform: translateY(-1px);
-}
-
-.meter-row article {
-  padding: 12px 14px;
-  border-radius: 18px;
-  background: rgba(4, 16, 40, 0.72);
-  border: 1px solid rgba(0, 240, 255, 0.08);
-}
-
-.meter-row strong {
-  display: block;
-  margin-top: 8px;
 }
 
 .board-column {
@@ -1112,6 +1789,11 @@ function clamp(value, min, max) {
   display: block;
 }
 
+.board-overlay.placing,
+.board-overlay.wiring {
+  cursor: crosshair;
+}
+
 .board-empty {
   position: absolute;
   inset: 0;
@@ -1134,12 +1816,45 @@ function clamp(value, min, max) {
   cursor: pointer;
 }
 
-.runtime-wire.is-user-wire {
-  stroke-dasharray: 11 9;
-}
-
 .runtime-wire.selected {
   filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.48));
+}
+
+.wire-preview {
+  stroke-dasharray: 10 7;
+  opacity: 0.92;
+  filter: drop-shadow(0 0 8px rgba(37, 99, 235, 0.55));
+  pointer-events: none;
+}
+
+.part-preview {
+  opacity: 0.48;
+  filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.28));
+  pointer-events: none;
+}
+
+.placement-glow-outer {
+  fill: rgba(34, 197, 94, 0.18);
+  stroke: rgba(34, 197, 94, 0.92);
+  stroke-width: 1.2px;
+  filter: drop-shadow(0 0 8px rgba(34, 197, 94, 0.72));
+}
+
+.placement-glow-inner {
+  fill: rgba(134, 239, 172, 0.88);
+  stroke: rgba(240, 253, 244, 0.92);
+  stroke-width: 0.9px;
+}
+
+.net-highlight-outer {
+  fill: rgba(34, 211, 238, 0.16);
+  stroke: rgba(34, 211, 238, 0.48);
+  stroke-width: 1px;
+}
+
+.net-highlight-inner {
+  fill: rgba(103, 232, 249, 0.92);
+  filter: drop-shadow(0 0 5px rgba(34, 211, 238, 0.75));
 }
 
 .part-group {
@@ -1185,52 +1900,216 @@ function clamp(value, min, max) {
   stroke-width: 1.6px;
 }
 
-.meter-float {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  z-index: 3;
-  width: min(260px, calc(100% - 40px));
-  padding: 16px;
-  border-radius: 22px;
+.panel-note {
+  position: relative;
+  z-index: 1;
+  margin: 12px 0 0;
+  color: #9eb5c8;
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.part-list {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.part-row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(0, 240, 255, 0.08);
+  background: rgba(4, 16, 40, 0.68);
+  cursor: pointer;
+  transition: border-color 0.18s ease, transform 0.18s ease;
+}
+
+.part-row:not(.placed) {
+  cursor: grab;
+}
+
+.part-row:hover,
+.part-row.active {
+  border-color: rgba(0, 240, 255, 0.28);
+  transform: translateY(-1px);
+}
+
+.part-row.placed {
+  box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.18);
+}
+
+.part-row span {
+  color: #a5f3fc;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.part-row strong,
+.part-row small {
+  color: #eff9ff;
+}
+
+.part-thumb {
+  width: 64px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  padding: 6px;
+  border-radius: 14px;
+  background: rgba(3, 12, 28, 0.82);
+  border: 1px solid rgba(0, 240, 255, 0.08);
+}
+
+.part-thumb :deep(svg) {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.palette-drag-ghost {
+  position: fixed;
+  z-index: 40;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  pointer-events: none;
+  transform: translate3d(0, 0, 0);
+}
+
+.palette-drag-ghost .part-thumb {
+  width: 84px;
+  height: 72px;
+  border-color: rgba(0, 240, 255, 0.28);
+  box-shadow: 0 10px 24px rgba(1, 8, 22, 0.26);
+}
+
+.drag-ghost-label {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(3, 12, 28, 0.92);
   border: 1px solid rgba(0, 240, 255, 0.18);
-  background:
-    linear-gradient(180deg, rgba(1, 16, 28, 0.96), rgba(3, 24, 37, 0.94)),
-    radial-gradient(circle at top, rgba(0, 240, 255, 0.08), transparent 42%);
-  box-shadow: inset 0 0 22px rgba(0, 240, 255, 0.08), 0 18px 40px rgba(1, 8, 22, 0.28);
+  color: #e7fbff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.part-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.part-row small,
+.tool-status small {
+  color: #9eb5c8;
+}
+
+.rotation-tools,
+.board-toolbar {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 14px;
 }
 
 .board-toolbar {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.tool-btn {
+  border: 1px solid rgba(0, 240, 255, 0.14);
+  background: rgba(4, 16, 40, 0.82);
+  color: #e7fbff;
+  border-radius: 14px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: border-color 0.18s ease, transform 0.18s ease;
+}
+
+.tool-btn:hover:not(:disabled),
+.tool-btn.active {
+  border-color: rgba(0, 240, 255, 0.34);
+  transform: translateY(-1px);
+}
+
+.tool-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.tool-status {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.meter-shell {
+  display: grid;
+  gap: 14px;
+}
+
+.inspector-meta {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 6px;
+}
+
+.inspector-meta span {
+  color: #8dd9ff;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.inspector-meta small {
+  color: #9eb5c8;
+}
+
+.inspector-actions {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
-.meter-meta {
-  display: grid;
-  gap: 6px;
-  margin-top: 12px;
-  min-height: 34px;
+.meter-divider {
+  position: relative;
+  z-index: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.34), transparent);
 }
 
-.meter-tag {
-  color: #7dd3fc;
-  font-size: 0.72rem;
-  font-weight: 800;
-  font-family: 'Courier New', monospace;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+.card-head-secondary {
+  margin-top: -2px;
 }
 
 .meter-hole {
-  margin-top: 8px;
+  position: relative;
+  z-index: 1;
+  margin-top: 4px;
   color: #e7fbff;
   font-size: 1rem;
   font-weight: 800;
 }
 
 .meter-voltage {
-  margin-top: 10px;
+  position: relative;
+  z-index: 1;
   color: #bbf7d0;
   font-family: 'Courier New', monospace;
   font-size: 1.8rem;
@@ -1239,17 +2118,29 @@ function clamp(value, min, max) {
 }
 
 .meter-row {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
-  margin-top: 14px;
 }
 
-.meter-row span {
+.meter-row article {
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgba(4, 16, 40, 0.72);
+  border: 1px solid rgba(0, 240, 255, 0.08);
+}
+
+.meter-row strong {
   display: block;
-  color: #8dd9ff;
-  font-size: 0.72rem;
-  font-weight: 700;
+  margin-top: 8px;
+}
+
+@media (max-width: 1440px) {
+  .runtime-shell {
+    grid-template-columns: minmax(240px, 280px) minmax(0, 1fr) minmax(260px, 300px);
+  }
 }
 
 @media (max-width: 1280px) {
@@ -1265,6 +2156,10 @@ function clamp(value, min, max) {
 
   .control-column {
     order: 2;
+  }
+
+  .tool-column {
+    order: 3;
   }
 
   .board-frame {
@@ -1287,28 +2182,6 @@ function clamp(value, min, max) {
     border-radius: 24px;
   }
 
-  .board-base,
-  .board-overlay {
-    inset: 0 0 190px 0;
-  }
-
-  .board-base {
-    padding: 12px;
-  }
-
-  .meter-float {
-    position: absolute;
-    top: auto;
-    right: 12px;
-    left: 12px;
-    bottom: 12px;
-    width: auto;
-  }
-
-  .meter-voltage {
-    font-size: 1.5rem;
-  }
-
   .meter-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1324,24 +2197,23 @@ function clamp(value, min, max) {
   }
 
   .board-frame {
-    min-height: 400px;
+    min-height: 360px;
   }
 
-  .board-base,
-  .board-overlay {
-    inset: 0 0 210px 0;
-  }
-
+  .rotation-tools,
+  .inspector-actions,
+  .board-toolbar,
   .meter-row {
     grid-template-columns: 1fr;
   }
 
-  .board-toolbar {
-    grid-template-columns: 1fr;
+  .part-row {
+    grid-template-columns: 56px minmax(0, 1fr);
   }
 
-  .meter-float {
-    padding: 14px;
+  .part-thumb {
+    width: 56px;
+    height: 48px;
   }
 }
 </style>
