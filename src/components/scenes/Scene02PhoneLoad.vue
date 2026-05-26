@@ -442,7 +442,8 @@ onUnmounted(() => {
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 .app {
-  min-height: 100vh;
+  min-height: 100%;
+  height: 100%;
   background: #020812;
   color: #d0e4ff;
   font-family: 'Courier New', Courier, monospace;
@@ -528,10 +529,11 @@ onUnmounted(() => {
     'mods curve';
   gap: 20px 30px;
   width: min(1480px, 96vw);
-  height: calc(100vh - 130px);
+  height: calc(100% - 130px);
   margin: 0 auto;
   padding: 18px 20px 8px;
   align-items: start;
+  flex: 1 1 auto;
 }
 
 .pane {
@@ -867,7 +869,7 @@ onUnmounted(() => {
 .bolt { font-size: 17px; }
 .ftr-sub { font-size: 11px; letter-spacing: 1.5px; color: rgba(0,240,255,0.52); margin-top: 4px; }
 
-.reset-btn { position: fixed; bottom: 62px; right: 24px; z-index: 100; background: rgba(0,240,255,0.08); border: 1px solid rgba(0,240,255,0.42); border-radius: 18px; color: rgba(0,240,255,0.85); font-family: 'Courier New', monospace; font-size: 11px; letter-spacing: 2px; padding: 8px 16px; cursor: pointer; transition: all 0.3s; }
+.reset-btn { position: fixed; bottom: calc(62px + var(--slide-nav-offset, 0px)); right: 24px; z-index: 100; background: rgba(0,240,255,0.08); border: 1px solid rgba(0,240,255,0.42); border-radius: 18px; color: rgba(0,240,255,0.85); font-family: 'Courier New', monospace; font-size: 11px; letter-spacing: 2px; padding: 8px 16px; cursor: pointer; transition: all 0.3s; }
 .reset-btn:hover { background: rgba(0,240,255,0.16); box-shadow: 0 0 14px rgba(0,240,255,0.4); }
 
 .svg-tag, .svg-tag2 { transition: opacity 0.8s ease; }

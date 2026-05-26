@@ -9,7 +9,7 @@
     </main>
 
     <!-- Footer Controls -->
-    <footer v-if="!isImmersiveSlide" class="presentation-footer">
+    <footer class="presentation-footer" :class="{ immersive: isImmersiveSlide }">
       <!-- Left: Slide Outline Drawer/Selector Toggle -->
       <div class="footer-left">
         <div class="selector-wrapper">
@@ -154,8 +154,8 @@ onUnmounted(() => {
 .presentation-container.immersive {
   width: 100vw;
   margin: 0;
-  padding: 0;
-  gap: 0;
+  padding: 0 0 16px;
+  gap: 12px;
 }
 
 .presentation-container::before {
@@ -187,7 +187,9 @@ onUnmounted(() => {
 }
 
 .presentation-workspace.immersive {
-  min-height: 100vh;
+  --slide-nav-offset: 96px;
+  min-height: calc(100vh - 112px);
+  height: calc(100vh - 112px);
 }
 
 .presentation-workspace.nav-only-titles :deep(.slide-intro),
@@ -211,6 +213,12 @@ onUnmounted(() => {
   border: 1px solid var(--nova-border);
   border-radius: 20px;
   box-shadow: 0 -12px 30px rgba(1, 8, 22, 0.28);
+}
+
+.presentation-footer.immersive {
+  width: min(1500px, calc(100% - 32px));
+  margin: 0 auto;
+  flex-shrink: 0;
 }
 
 .slide-dropdown {
@@ -340,6 +348,16 @@ onUnmounted(() => {
 }
 
 @media (max-width: 800px) {
+  .presentation-container.immersive {
+    padding-bottom: 12px;
+  }
+
+  .presentation-workspace.immersive {
+    --slide-nav-offset: 174px;
+    min-height: calc(100vh - 198px);
+    height: calc(100vh - 198px);
+  }
+
   .presentation-footer {
     grid-template-columns: 1fr;
     gap: 16px;
