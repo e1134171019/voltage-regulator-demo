@@ -1,16 +1,7 @@
 <template>
-  <div class="presentation-container">
-    <!-- Header -->
-    <header class="presentation-header">
-      <div class="header-right">
-        <div class="slide-indicator">
-          SLIDE <strong>{{ currentSlide + 1 }}</strong> / {{ totalSlides }}
-        </div>
-      </div>
-    </header>
-
+  <div class="presentation-container" :class="{ immersive: isImmersiveSlide }">
     <!-- Main Workspace -->
-    <main class="presentation-workspace">
+    <main class="presentation-workspace" :class="{ immersive: isImmersiveSlide, 'nav-only-titles': isNavOnlyTitleSlide }">
       <!-- Transition wrapper for slides -->
       <transition name="slide-fade" mode="out-in">
         <component :is="activeSlideComponent" :key="currentSlide" />
@@ -18,7 +9,7 @@
     </main>
 
     <!-- Footer Controls -->
-    <footer class="presentation-footer">
+    <footer v-if="!isImmersiveSlide" class="presentation-footer">
       <!-- Left: Slide Outline Drawer/Selector Toggle -->
       <div class="footer-left">
         <div class="selector-wrapper">
@@ -56,7 +47,7 @@
     </footer>
 
     <!-- Progress line -->
-    <div class="progress-bar-track">
+    <div v-if="!isImmersiveSlide" class="progress-bar-track">
       <div class="progress-bar-fill" :style="{ width: progressPercent + '%' }"></div>
     </div>
   </div>
@@ -79,26 +70,39 @@ import Slide10LaunchLinks from '../components/presentation/slides/Slide10LaunchL
 const currentSlide = ref(0)
 
 const slideList = [
-  { title: '開場 + 主題', component: Slide01Opening },
-  { title: '手機錄影場景', component: Slide02PhoneLoad },
-  { title: '負載變重 -> 電壓降', component: Slide03VoltageDrop },
-  { title: 'ZD 6.2V：建立參考電壓', component: Slide04ZenerReference },
-  { title: 'μA741：比較控制', component: Slide05OpAmpControl },
-  { title: '2SC1384：小訊號控制大電流', component: Slide06PowerTransistor },
-  { title: '原電路圖全覽', component: Slide07CircuitOverview },
-  { title: '閉迴路動作流程', component: Slide08ClosedLoop },
-  { title: '實驗數據', component: Slide09ExperimentSummary },
-  { title: '結論 + 展示網址', component: Slide10LaunchLinks },
+  { title: '日常生活應用', component: Slide01Opening },
+  { title: '手機錄影場景', component: Slide02PhoneLoad, immersive: true },
+  { title: '完整定電壓電路總覽', component: Slide07CircuitOverview },
+  { title: 'Vref：電壓參考', component: Slide04ZenerReference },
+  { title: 'V+：UA741 同相輸入', component: Slide05OpAmpControl },
+  { title: 'V−：UA741 反相輸入', component: Slide08ClosedLoop },
+  { title: 'UA741 OUT：修正訊號', component: Slide05OpAmpControl },
+  { title: 'NPN Base：控制端與輸出調整', component: Slide06PowerTransistor },
+  { title: 'VL：輸出電壓量測', component: Slide09ExperimentSummary },
+  { title: 'RL：負載變化與電流', component: Slide03VoltageDrop },
+  { title: '結語', component: Slide10LaunchLinks },
 ]
 
 const totalSlides = slideList.length
 
+const activeSlide = computed(() => {
+  return slideList[currentSlide.value]
+})
+
 const activeSlideComponent = computed(() => {
-  return slideList[currentSlide.value].component
+  return activeSlide.value.component
 })
 
 const progressPercent = computed(() => {
   return ((currentSlide.value + 1) / totalSlides) * 100
+})
+
+const isImmersiveSlide = computed(() => {
+  return Boolean(activeSlide.value.immersive)
+})
+
+const isNavOnlyTitleSlide = computed(() => {
+  return currentSlide.value >= 2
 })
 
 function nextSlide() {
@@ -147,6 +151,13 @@ onUnmounted(() => {
   z-index: 1;
 }
 
+.presentation-container.immersive {
+  width: 100vw;
+  margin: 0;
+  padding: 0;
+  gap: 0;
+}
+
 .presentation-container::before {
   content: '';
   position: absolute;
@@ -159,35 +170,11 @@ onUnmounted(() => {
     0 0 80px rgba(0, 240, 255, 0.05);
 }
 
+.presentation-container.immersive::before {
+  display: none;
+}
+
 /* Header */
-.presentation-header {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  padding: 16px 28px;
-  background: linear-gradient(135deg, rgba(4, 12, 30, 0.76), rgba(9, 19, 48, 0.68));
-  backdrop-filter: blur(20px);
-  border: 1px solid var(--nova-border);
-  border-radius: 20px;
-  box-shadow: 0 18px 40px rgba(1, 8, 22, 0.38);
-}
-
-.slide-indicator {
-  font-size: 0.8rem;
-  color: var(--nova-text-dim);
-  font-weight: 600;
-  background: rgba(5, 18, 44, 0.88);
-  padding: 6px 12px;
-  border-radius: 99px;
-  border: 1px solid rgba(0, 240, 255, 0.14);
-  box-shadow: inset 0 0 0 1px rgba(255, 79, 163, 0.08);
-}
-
-.slide-indicator strong {
-  color: var(--nova-text);
-  font-weight: 800;
-}
-
 /* Main Workspace */
 .presentation-workspace {
   flex-grow: 1;
@@ -197,6 +184,20 @@ onUnmounted(() => {
   justify-content: center;
   position: relative;
   z-index: 1;
+}
+
+.presentation-workspace.immersive {
+  min-height: 100vh;
+}
+
+.presentation-workspace.nav-only-titles :deep(.slide-intro),
+.presentation-workspace.nav-only-titles :deep(.card-head) {
+  display: none;
+}
+
+.presentation-workspace.nav-only-titles :deep(.theory-body),
+.presentation-workspace.nav-only-titles :deep(.summary-body) {
+  margin-top: 0 !important;
 }
 
 /* Footer Controls */
