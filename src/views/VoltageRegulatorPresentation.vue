@@ -2,10 +2,6 @@
   <div class="presentation-container">
     <!-- Header -->
     <header class="presentation-header">
-      <div class="header-left">
-        <span class="header-logo">⚡</span>
-        <h1>線性穩壓器簡報站</h1>
-      </div>
       <div class="header-right">
         <div class="slide-indicator">
           SLIDE <strong>{{ currentSlide + 1 }}</strong> / {{ totalSlides }}
@@ -152,7 +148,7 @@ onUnmounted(() => {
 /* Header */
 .presentation-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   padding: 16px 28px;
   background: rgba(255, 255, 255, 0.45);
@@ -160,24 +156,6 @@ onUnmounted(() => {
   border: 1px solid rgba(255, 255, 255, 0.7);
   border-radius: 20px;
   box-shadow: 0 10px 30px rgba(30, 41, 59, 0.03);
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.header-logo {
-  font-size: 1.5rem;
-}
-
-.presentation-header h1 {
-  margin: 0;
-  font-size: 1.25rem;
-  font-weight: 800;
-  color: #0f172a;
-  letter-spacing: -0.01em;
 }
 
 .slide-indicator {
