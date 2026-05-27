@@ -1,10 +1,14 @@
 <template>
   <div class="presentation-container" :class="{ immersive: isImmersiveSlide }">
     <!-- Main Workspace -->
-    <main class="presentation-workspace" :class="{ immersive: isImmersiveSlide }">
+    <main ref="workspaceRef" class="presentation-workspace" :class="{ immersive: isImmersiveSlide }">
       <!-- Transition wrapper for slides -->
       <transition name="slide-fade" mode="out-in">
-        <component :is="activeSlideComponent" :key="currentSlide" />
+        <div class="slide-frame" :key="currentSlide" :style="slideFrameStyle">
+          <div class="slide-surface">
+            <component :is="activeSlideComponent" />
+          </div>
+        </div>
       </transition>
     </main>
 
@@ -54,7 +58,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 
 import Slide01Opening from '../components/presentation/slides/Slide01Opening.vue'
 import Slide02PhoneLoad from '../components/presentation/slides/Slide02PhoneLoad.vue'
@@ -68,6 +72,15 @@ import Slide09ExperimentSummary from '../components/presentation/slides/Slide09E
 import Slide10LaunchLinks from '../components/presentation/slides/Slide10LaunchLinks.vue'
 
 const currentSlide = ref(0)
+const workspaceRef = ref(null)
+const workspaceSize = ref({
+  width: 1440,
+  height: 810,
+})
+
+const SLIDE_WIDTH = 1440
+const SLIDE_HEIGHT = 810
+let workspaceObserver = null
 
 const slideList = [
   { title: '日常生活應用', component: Slide01Opening },
@@ -101,6 +114,18 @@ const isImmersiveSlide = computed(() => {
   return Boolean(activeSlide.value.immersive)
 })
 
+const slideFrameStyle = computed(() => {
+  const widthScale = workspaceSize.value.width / SLIDE_WIDTH
+  const heightScale = workspaceSize.value.height / SLIDE_HEIGHT
+  const scale = Math.max(0.16, Math.min(widthScale, heightScale, 1))
+
+  return {
+    '--slide-scale': scale,
+    width: `${SLIDE_WIDTH * scale}px`,
+    height: `${SLIDE_HEIGHT * scale}px`,
+  }
+})
+
 function nextSlide() {
   if (currentSlide.value < totalSlides - 1) {
     currentSlide.value++
@@ -126,11 +151,35 @@ function handleKeyDown(e) {
 
 onMounted(() => {
   window.addEventListener('keydown', handleKeyDown)
+  window.addEventListener('resize', updateWorkspaceSize)
+  updateWorkspaceSize()
+
+  if (typeof ResizeObserver !== 'undefined' && workspaceRef.value) {
+    workspaceObserver = new ResizeObserver(updateWorkspaceSize)
+    workspaceObserver.observe(workspaceRef.value)
+  }
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
+  window.removeEventListener('resize', updateWorkspaceSize)
+  workspaceObserver?.disconnect()
 })
+
+function updateWorkspaceSize() {
+  nextTick(() => {
+    const workspace = workspaceRef.value
+    if (!workspace) {
+      return
+    }
+
+    const rect = workspace.getBoundingClientRect()
+    workspaceSize.value = {
+      width: Math.max(1, rect.width),
+      height: Math.max(1, rect.height),
+    }
+  })
+}
 </script>
 
 <style scoped>
@@ -175,12 +224,13 @@ onUnmounted(() => {
 /* Main Workspace */
 .presentation-workspace {
   flex-grow: 1;
-  min-height: 520px;
-  display: flex;
-  flex-direction: column;
+  min-height: 0;
+  display: grid;
+  place-items: center;
   justify-content: center;
   position: relative;
   z-index: 1;
+  overflow: hidden;
 }
 
 .presentation-workspace.immersive {
@@ -188,6 +238,25 @@ onUnmounted(() => {
   min-height: calc(100dvh - 112px);
   min-height: calc(100vh - 112px);
   height: auto;
+}
+
+.slide-frame {
+  position: relative;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+
+.slide-surface {
+  width: 1440px;
+  height: 810px;
+  overflow: hidden;
+  transform: scale(var(--slide-scale));
+  transform-origin: top left;
+}
+
+.slide-surface :deep(> *) {
+  width: 100%;
+  height: 100%;
 }
 
 /* Footer Controls */
