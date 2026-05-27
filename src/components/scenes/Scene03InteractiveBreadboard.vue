@@ -208,6 +208,21 @@
           <small>{{ continuitySummary.detail }}</small>
         </div>
 
+        <div v-if="selectedWireId" class="inspector-meta">
+          <span>Wire Color</span>
+          <div class="wire-color-picker">
+            <button
+              v-for="color in wireColorOptions"
+              :key="color.value"
+              class="color-dot"
+              :style="{ backgroundColor: color.value }"
+              :class="{ selected: getSelectedWireColor() === color.value }"
+              :title="color.label"
+              @click="setSelectedWireColor(color.value)"
+            />
+          </div>
+        </div>
+
         <div class="inspector-actions">
           <button class="tool-btn" :disabled="!selectedPartId" @click="removeSelectedPart">刪除元件</button>
           <button class="tool-btn" :disabled="!selectedWireId" @click="removeSelectedWire">刪除導線</button>
@@ -272,6 +287,67 @@ const wires = ref([])
 let nextWireId = 1
 let suppressPaletteClick = false
 
+// History management for Undo/Redo
+const history = {
+  stack: [],
+  currentIndex: -1,
+  canUndo: () => history.currentIndex > 0,
+  canRedo: () => history.currentIndex < history.stack.length - 1,
+}
+
+function captureState() {
+  const state = {
+    partPlacements: JSON.parse(JSON.stringify(partPlacements)),
+    partRotations: JSON.parse(JSON.stringify(partRotations)),
+    wires: JSON.parse(JSON.stringify(wires.value)),
+    nextWireId,
+  }
+  
+  // 移除未來的狀態（當用戶執行新操作後）
+  if (history.currentIndex < history.stack.length - 1) {
+    history.stack = history.stack.slice(0, history.currentIndex + 1)
+  }
+  
+  history.stack.push(state)
+  history.currentIndex = history.stack.length - 1
+}
+
+function undo() {
+  if (!history.canUndo()) return
+  
+  history.currentIndex -= 1
+  restoreState(history.stack[history.currentIndex])
+}
+
+function redo() {
+  if (!history.canRedo()) return
+  
+  history.currentIndex += 1
+  restoreState(history.stack[history.currentIndex])
+}
+
+function restoreState(state) {
+  Object.keys(partPlacements).forEach((key) => delete partPlacements[key])
+  Object.assign(partPlacements, JSON.parse(JSON.stringify(state.partPlacements)))
+  
+  Object.keys(partRotations).forEach((key) => delete partRotations[key])
+  Object.assign(partRotations, JSON.parse(JSON.stringify(state.partRotations)))
+  
+  wires.value = JSON.parse(JSON.stringify(state.wires))
+  nextWireId = state.nextWireId
+}
+
+const wireColorOptions = [
+  { label: 'Blue (Signal)', value: '#2563eb' },
+  { label: 'Red (Vcc)', value: '#ef4444' },
+  { label: 'Black (GND)', value: '#1f2937' },
+  { label: 'Yellow', value: '#eab308' },
+  { label: 'Green', value: '#22c55e' },
+  { label: 'Orange', value: '#f97316' },
+  { label: 'Purple', value: '#9333ea' },
+  { label: 'White', value: '#f5f5f5' },
+]
+
 const PART_LAYOUTS = [
   { id: 'ua741', match: 'custom_ua741_labeled_2x_tight', kind: 'IC', label: 'UA741' },
   { id: 'npn', match: 'custom_npn_to92_cbe_2x_cbe_inside_fixed', kind: 'Transistor', label: 'NPN 2SC1384' },
@@ -280,6 +356,10 @@ const PART_LAYOUTS = [
   { id: 'rb', match: 'custom_resistor_1k_u_2x_ultrashort_center_label', kind: 'Resistor', label: '1k' },
   { id: 'r1', match: 'custom_resistor_4k7_u_2x_ultrashort_center_label', kind: 'Resistor', label: '4.7k' },
   { id: 'r2', match: 'custom_resistor_10k_u_2x_ultrashort_center_label', kind: 'Resistor', label: '10k' },
+]
+  { label: 'Orange', value: '#f97316' },
+  { label: 'Purple', value: '#9333ea' },
+  { label: 'White', value: '#f5f5f5' },
 ]
 
 const svgMarkupCache = new Map()
@@ -813,6 +893,18 @@ function handleKeyDown(event) {
     return
   }
 
+  if ((event.ctrlKey || event.metaKey) && event.key === 'z') {
+    event.preventDefault()
+    undo()
+    return
+  }
+
+  if ((event.ctrlKey || event.metaKey) && (event.key === 'y' || (event.shiftKey && event.key === 'z'))) {
+    event.preventDefault()
+    redo()
+    return
+  }
+
   if (event.key === 'Delete') {
     if (pendingWireStart.value) {
       pendingWireStart.value = ''
@@ -853,6 +945,10 @@ function resetPlacements() {
   wireMode.value = false
   wires.value = []
   nextWireId = 1
+  
+  // Reset history
+  history.stack = []
+  history.currentIndex = -1
 }
 
 function clearWires() {
@@ -1012,6 +1108,7 @@ function rotateTargetPart(delta) {
   const mapping = computePlacementFromAnchor(part, anchorHoleName, nextRotation)
   if (mapping) {
     partPlacements[targetPartId] = mapping
+    captureState()
   }
 }
 
@@ -1021,6 +1118,21 @@ function selectWire(wireId) {
   pendingPlacementPartId.value = ''
 }
 
+function getSelectedWireColor() {
+  if (!selectedWireId.value) return ''
+  const wire = wires.value.find((w) => w.id === selectedWireId.value)
+  return wire?.color || '#2563eb'
+}
+
+function setSelectedWireColor(color) {
+  if (!selectedWireId.value) return
+  const wire = wires.value.find((w) => w.id === selectedWireId.value)
+  if (wire) {
+    wire.color = color
+    captureState()
+  }
+}
+
 function removeSelectedWire() {
   if (!selectedWireId.value) {
     return
@@ -1028,6 +1140,8 @@ function removeSelectedWire() {
 
   wires.value = wires.value.filter((wire) => wire.id !== selectedWireId.value)
   selectedWireId.value = ''
+  
+  captureState()
 }
 
 function removeSelectedPart() {
@@ -1037,6 +1151,8 @@ function removeSelectedPart() {
 
   delete partPlacements[selectedPartId.value]
   selectedPartId.value = ''
+  
+  captureState()
 }
 
 function selectNode(nodeId) {
@@ -1209,6 +1325,7 @@ function handlePointerUp() {
     const snapped = snapPartToBoard(renderedPart)
     if (snapped) {
       partPlacements[renderedPart.id] = snapped
+      captureState()
     }
   }
 
@@ -1352,6 +1469,7 @@ function handleBoardPointerUp() {
         via: buildWireViaPoint(startAnchor, endAnchor, currentPoint),
       },
     ]
+    captureState()
   }
 
   pendingWireStart.value = ''
@@ -1389,6 +1507,8 @@ function placePendingPart(pointer) {
   selectedPartId.value = part.id
   pendingPlacementPartId.value = ''
   hoverBoardPoint.value = null
+  
+  captureState()
 }
 
 function computePlacementFromAnchor(part, anchorHoleName, rotation) {
@@ -2047,6 +2167,35 @@ function clamp(value, min, max) {
 .tool-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+.wire-color-picker {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.color-dot {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 240, 255, 0.24);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  box-shadow: 0 0 0 0 transparent;
+}
+
+.color-dot:hover {
+  border-color: rgba(0, 240, 255, 0.48);
+  transform: scale(1.1);
+}
+
+.color-dot.selected {
+  border-color: rgba(0, 240, 255, 0.92);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.58), inset 0 0 8px rgba(255, 255, 255, 0.18);
 }
 
 .tool-status {
