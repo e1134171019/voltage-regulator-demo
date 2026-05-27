@@ -791,7 +791,7 @@ const continuityState = computed(() => {
 })
 
 const continuitySummary = computed(() => {
-  const focusHole = pendingWireStart.value || selectedMeasurement.value?.hole || ''
+  const focusHole = resolveConnectorToHole(wireDragState.value?.startConnector)?.name || selectedMeasurement.value?.hole || ''
   if (!focusHole) {
     return {
       title: '--',
@@ -807,11 +807,11 @@ const continuitySummary = computed(() => {
 })
 
 const pendingWireAnchor = computed(() => {
-  if (!pendingWireStart.value) {
+  if (!wireDragState.value?.startConnector) {
     return null
   }
 
-  return boardHoleLookup.value.get(pendingWireStart.value.toUpperCase())?.anchor || null
+  return wireDragState.value.startConnector.position || null
 })
 
 const renderedWires = computed(() => {
@@ -1366,6 +1366,11 @@ function startPartDrag(event, partId) {
     return
   }
 
+  const hitResult = hitTestAtPointer(pointer, holePitch.value * 1.2)
+  if (hitResult.type === 'connector' && hitResult.connector?.type === 'partPin' && hitResult.connector.partId === partId) {
+    return
+  }
+
   event.stopPropagation()
   selectedPartId.value = partId
   selectedWireId.value = ''
@@ -1558,19 +1563,31 @@ function handleBoardPointerDown(event) {
     return
   }
 
-  startWireFromPointer(pointer)
-}
-
-function startWireFromPointer(pointer) {
-  // Use priority hit-test to find connector
   const hitResult = hitTestAtPointer(pointer, holePitch.value * 1.2)
-
-  // Only start wire from a connector (boardHole or partPin)
-  if (hitResult.type !== 'connector') {
+  if (hitResult.type === 'connector') {
+    startWireFromConnector(hitResult.connector)
     return
   }
 
-  const connector = hitResult.connector
+  if (hitResult.type === 'wireEnd' || hitResult.type === 'wireBody') {
+    selectWire(hitResult.wire.id)
+    return
+  }
+
+  if (hitResult.type === 'partBody') {
+    selectedPartId.value = hitResult.part.id
+    selectedWireId.value = ''
+    return
+  }
+
+  selectedPartId.value = ''
+  selectedWireId.value = ''
+}
+
+function startWireFromConnector(connector) {
+  if (!connector) {
+    return
+  }
 
   selectedPartId.value = ''
   selectedWireId.value = ''
@@ -1584,7 +1601,6 @@ function startWireFromPointer(pointer) {
     currentHole: '', // Keep for backward compatibility during transition
   }
 }
-}
 
 function handleBoardPointerUp(event) {
   if (isPanning.value) {
@@ -1596,34 +1612,33 @@ function handleBoardPointerUp(event) {
     return
   }
 
+  const pointer = pointerToBoard(event)
+  let releaseConnector = wireDragState.value.currentConnector
+  let currentPoint = wireDragState.value.currentPoint
+
+  if (pointer) {
+    const hitResult = hitTestAtPointer(pointer, holePitch.value * 1.2)
+    releaseConnector = hitResult.type === 'connector' ? hitResult.connector : releaseConnector
+    currentPoint = pointer
+  }
+
   const startConnector = wireDragState.value.startConnector
-  const endConnector = wireDragState.value.currentConnector
-  const currentPoint = wireDragState.value.currentPoint
+  const startHole = resolveConnectorToHole(startConnector)
+  const endHole = resolveConnectorToHole(releaseConnector)
 
-  // Only allow board hole to board hole connections for now
-  // (compatibility with existing wire model)
-  if (
-    startConnector?.type === 'boardHole' &&
-    endConnector?.type === 'boardHole' &&
-    startConnector.id !== endConnector.id
-  ) {
-    const startHole = boardHoleLookup.value.get(startConnector.holeName.toUpperCase())
-    const endHole = boardHoleLookup.value.get(endConnector.holeName.toUpperCase())
-
-    if (startHole && endHole) {
-      wires.value = [
-        ...wires.value,
-        {
-          id: `user-${nextWireId++}`,
-          from: startConnector.holeName,
-          to: endConnector.holeName,
-          color: getSelectedWireColor(),
-          width: 3.1,
-          via: buildWireViaPoint(startHole.anchor, endHole.anchor, currentPoint),
-        },
-      ]
-      captureState()
-    }
+  if (startHole && endHole && startHole.name.toUpperCase() !== endHole.name.toUpperCase()) {
+    wires.value = [
+      ...wires.value,
+      {
+        id: `user-${nextWireId++}`,
+        from: startHole.name,
+        to: endHole.name,
+        color: getSelectedWireColor(),
+        width: 3.1,
+        via: buildWireViaPoint(startHole.anchor, endHole.anchor, currentPoint),
+      },
+    ]
+    captureState()
   }
 
   pendingWireStart.value = ''
@@ -1722,23 +1737,28 @@ function computePlacementFromAnchor(part, anchorHoleName, rotation) {
 
 // Priority-based hit test: connector > wireEnd > wireBody > partBody > board
 function hitTestAtPointer(point, maxDistance = Number.POSITIVE_INFINITY) {
-  // Priority 1: Board hole or part pin connector
-  const connectorHitZone = holePitch.value * 1.2 // Invisible zone around connector
+  const connectorHitZone = holePitch.value * 1.2
+  const connectorCandidates = []
+
   for (const connector of allConnectors.value) {
     const distance = Math.hypot(connector.position.x - point.x, connector.position.y - point.y)
     if (distance <= connectorHitZone && distance <= maxDistance) {
-      return {
-        type: 'connector',
-        connector,
-        distance,
-      }
+      connectorCandidates.push({ type: 'connector', connector, distance })
     }
   }
 
-  // Priority 2: Wire end (for selecting/deleting wires)
+  if (connectorCandidates.length) {
+    connectorCandidates.sort((left, right) => {
+      const leftLayer = left.connector.type === 'partPin' ? 0 : 1
+      const rightLayer = right.connector.type === 'partPin' ? 0 : 1
+      return leftLayer - rightLayer || left.distance - right.distance
+    })
+
+    return connectorCandidates[0]
+  }
+
   const wireEndHitZone = holePitch.value * 0.8
   for (const wire of renderedWires.value) {
-    // Check wire start point
     const startHole = boardHoleLookup.value.get(wire.from.toUpperCase())
     if (startHole) {
       const distance = Math.hypot(startHole.anchor.x - point.x, startHole.anchor.y - point.y)
@@ -1747,7 +1767,6 @@ function hitTestAtPointer(point, maxDistance = Number.POSITIVE_INFINITY) {
       }
     }
 
-    // Check wire end point
     const endHole = boardHoleLookup.value.get(wire.to.toUpperCase())
     if (endHole) {
       const distance = Math.hypot(endHole.anchor.x - point.x, endHole.anchor.y - point.y)
@@ -1757,51 +1776,100 @@ function hitTestAtPointer(point, maxDistance = Number.POSITIVE_INFINITY) {
     }
   }
 
-  // Priority 3: Wire body (for selecting wires)
   const wireBodyHitZone = holePitch.value * 0.5
   for (const wire of renderedWires.value) {
-    // Simple distance-to-path check (would need more sophisticated math for exact)
-    // For now, just enable clicking on wires with a simpler heuristic
     const startHole = boardHoleLookup.value.get(wire.from.toUpperCase())
     const endHole = boardHoleLookup.value.get(wire.to.toUpperCase())
     if (!startHole || !endHole) continue
 
-    // Check distance to line segment (simplified)
-    const dx = endHole.anchor.x - startHole.anchor.x
-    const dy = endHole.anchor.y - startHole.anchor.y
-    const t = Math.max(0, Math.min(1, ((point.x - startHole.anchor.x) * dx + (point.y - startHole.anchor.y) * dy) / (dx * dx + dy * dy)))
-    const closestX = startHole.anchor.x + t * dx
-    const closestY = startHole.anchor.y + t * dy
-    const distance = Math.hypot(point.x - closestX, point.y - closestY)
+    const points = wire.via ? [startHole.anchor, wire.via, endHole.anchor] : [startHole.anchor, endHole.anchor]
+    const distance = distanceToPolyline(point, points)
 
     if (distance <= wireBodyHitZone && distance <= maxDistance) {
       return { type: 'wireBody', wire, distance }
     }
   }
 
-  // Priority 4: Part body
   for (const part of renderedParts.value) {
     if (!part.bounds) continue
-    const { minX, minY, maxX, maxY } = part.bounds
-    const transformedBounds = {
-      minX: part.displayTransform.e + minX * part.displayTransform.a,
-      minY: part.displayTransform.f + minY * part.displayTransform.d,
-      maxX: part.displayTransform.e + maxX * part.displayTransform.a,
-      maxY: part.displayTransform.f + maxY * part.displayTransform.d,
-    }
 
-    if (
-      point.x >= transformedBounds.minX &&
-      point.x <= transformedBounds.maxX &&
-      point.y >= transformedBounds.minY &&
-      point.y <= transformedBounds.maxY
-    ) {
+    if (pointInTransformedBounds(point, part.bounds, part.displayTransform)) {
       return { type: 'partBody', part, distance: 0 }
     }
   }
 
-  // Priority 5: Board (always hit)
   return { type: 'board', distance: 0 }
+}
+
+function resolveConnectorToHole(connector) {
+  if (!connector) {
+    return null
+  }
+
+  if (connector.type === 'boardHole') {
+    return boardHoleLookup.value.get(connector.holeName.toUpperCase()) || null
+  }
+
+  if (connector.type === 'partPin') {
+    const part = renderedParts.value.find((item) => item.id === connector.partId)
+    const holeName = part?.holes?.[connector.pinId]
+    return holeName ? boardHoleLookup.value.get(holeName.toUpperCase()) || null : null
+  }
+
+  return null
+}
+
+function pointInTransformedBounds(point, bounds, transform) {
+  const corners = [
+    { x: bounds.minX, y: bounds.minY },
+    { x: bounds.minX + bounds.width, y: bounds.minY },
+    { x: bounds.minX + bounds.width, y: bounds.minY + bounds.height },
+    { x: bounds.minX, y: bounds.minY + bounds.height },
+  ].map((corner) => applyMatrix(transform, corner))
+
+  return pointInPolygon(point, corners)
+}
+
+function pointInPolygon(point, polygon) {
+  let inside = false
+
+  for (let index = 0, previous = polygon.length - 1; index < polygon.length; previous = index, index += 1) {
+    const currentPoint = polygon[index]
+    const previousPoint = polygon[previous]
+    const crosses =
+      currentPoint.y > point.y !== previousPoint.y > point.y &&
+      point.x < ((previousPoint.x - currentPoint.x) * (point.y - currentPoint.y)) / (previousPoint.y - currentPoint.y) + currentPoint.x
+
+    if (crosses) {
+      inside = !inside
+    }
+  }
+
+  return inside
+}
+
+function distanceToPolyline(point, points) {
+  let bestDistance = Number.POSITIVE_INFINITY
+
+  for (let index = 0; index < points.length - 1; index += 1) {
+    bestDistance = Math.min(bestDistance, distanceToSegment(point, points[index], points[index + 1]))
+  }
+
+  return bestDistance
+}
+
+function distanceToSegment(point, start, end) {
+  const dx = end.x - start.x
+  const dy = end.y - start.y
+  const lengthSquared = dx * dx + dy * dy
+  if (lengthSquared === 0) {
+    return Math.hypot(point.x - start.x, point.y - start.y)
+  }
+
+  const t = Math.max(0, Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared))
+  const closestX = start.x + t * dx
+  const closestY = start.y + t * dy
+  return Math.hypot(point.x - closestX, point.y - closestY)
 }
 
 function findNearestHole(point, threshold) {
