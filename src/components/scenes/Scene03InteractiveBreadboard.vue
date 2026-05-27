@@ -73,6 +73,25 @@
               />
             </g>
 
+            <g v-if="currentFlowSegments.length" class="current-flow-layer">
+              <g v-for="segment in currentFlowSegments" :key="segment.id">
+                <path class="current-flow-trace" :d="segment.path" />
+                <circle
+                  v-for="particle in segment.particles"
+                  :key="particle.id"
+                  class="current-particle"
+                  :r="segment.radius"
+                >
+                  <animateMotion
+                    :path="segment.path"
+                    :dur="segment.duration"
+                    :begin="particle.begin"
+                    repeatCount="indefinite"
+                  />
+                </circle>
+              </g>
+            </g>
+
             <g class="net-feedback-layer">
               <circle
                 v-if="wireDragState?.startConnector"
@@ -218,16 +237,6 @@
           </button>
         </div>
 
-        <div class="rotation-tools">
-          <button class="tool-btn" :disabled="!currentTargetPartId" @click="rotateTargetPart(-90)">↺ 90°</button>
-          <button class="tool-btn" :disabled="!currentTargetPartId" @click="rotateTargetPart(90)">↻ 90°</button>
-        </div>
-
-        <div class="board-toolbar">
-          <!-- Wire mode toggle removed - universal wire start from any connector -->
-          <button class="tool-btn" @click="resetPlacements">重設</button>
-          <button class="tool-btn" @click="clearWires">清線</button>
-        </div>
       </div>
 
       <div class="panel-card meter-shell">
@@ -252,6 +261,12 @@
           <span>Continuity</span>
           <strong>{{ continuitySummary.title }}</strong>
           <small>{{ continuitySummary.detail }}</small>
+        </div>
+
+        <div v-if="componentRuleSummary" class="inspector-meta rule-warning">
+          <span>Rule</span>
+          <strong>{{ componentRuleSummary.title }}</strong>
+          <small>{{ componentRuleSummary.detail }}</small>
         </div>
 
         <div v-if="selectedWireId" class="inspector-meta">
@@ -443,6 +458,13 @@ const PART_LAYOUTS = [
   { id: 'r2', match: 'custom_resistor_10k_u_2x_ultrashort_center_label', kind: 'Resistor', label: '10k' },
 ]
 
+const COMPONENT_RULES = {
+  zenerBreakdownVoltage: 6.2,
+  diodeForwardVoltage: 0.65,
+  baseEmitterVoltage: 0.7,
+  minimumVisibleCurrent: 0.00002,
+}
+
 const svgMarkupCache = new Map()
 const svgPreviewCache = new Map()
 
@@ -618,16 +640,10 @@ const renderedParts = computed(() => {
       }
 
       const connectedHoles = continuityState.value.holesFor(holeName)
-      const isConnected = connectedHoles.length > 1 || wires.value.some(
-        (wire) =>
-          (wire.from.toUpperCase() === holeName.toUpperCase() ||
-            wire.to.toUpperCase() === holeName.toUpperCase()) &&
-          wires.value.filter(
-            (w) =>
-              (w.from.toUpperCase() === holeName.toUpperCase() ||
-                w.to.toUpperCase() === holeName.toUpperCase()),
-          ).length > 0,
-      )
+      const isConnected =
+        connectedHoles.length > 1 ||
+        wires.value.some((wire) => wireTouchesHole(wire, holeName)) &&
+          wires.value.filter((wire) => wireTouchesHole(wire, holeName)).length > 0
 
       return { connector, holeName, isConnected }
     })
@@ -763,6 +779,16 @@ const boardNodes = computed(() => {
       color: '#ff5f7a',
     },
     {
+      id: 'gnd',
+      label: 'GND',
+      shortLabel: 'GND',
+      hole: '32bottomBlue',
+      voltage: 0,
+      current: regulatorModel.value.supplyCurrent,
+      power: 0,
+      color: '#60a5fa',
+    },
+    {
       id: 'vref',
       label: 'Vref',
       shortLabel: 'REF',
@@ -852,7 +878,7 @@ const continuityState = computed(() => {
 
   wires.value.forEach((wire) => {
     const left = getHoleContinuityKey(wire.from)
-    const right = getHoleContinuityKey(wire.to)
+    const right = wire.to ? getHoleContinuityKey(wire.to) : ''
     if (left && right) {
       dsu.union(left, right)
     }
@@ -896,6 +922,25 @@ const continuitySummary = computed(() => {
   }
 })
 
+const componentRuleSummary = computed(() => {
+  const warning = componentBehaviorModel.value.warnings[0]
+  if (warning) {
+    return {
+      title: '檢查元件接法',
+      detail: warning.label,
+    }
+  }
+
+  if (componentBehaviorModel.value.activeEdges.length) {
+    return {
+      title: '電流路徑成立',
+      detail: '粒子依電阻、齊納、NPN、UA741 的簡化規則顯示。',
+    }
+  }
+
+  return null
+})
+
 const pendingWireAnchor = computed(() => {
   if (!wireDragState.value?.startConnector) {
     return null
@@ -907,14 +952,17 @@ const pendingWireAnchor = computed(() => {
 const renderedWires = computed(() => {
   return wires.value
     .map((wire) => {
-      const start = boardHoleLookup.value.get(wire.from.toUpperCase())?.anchor
-      const end = boardHoleLookup.value.get(wire.to.toUpperCase())?.anchor
+      const start = getWireEndpointPoint(wire, 'from')
+      const end = getWireEndpointPoint(wire, 'to')
       if (!start || !end) {
         return null
       }
 
       return {
         ...wire,
+        start,
+        end,
+        points: wire.via ? [start, wire.via, end] : [start, end],
         path: routedWirePath(start, end, wire.via),
       }
     })
@@ -927,6 +975,307 @@ const selectedRenderedWire = computed(() => {
   }
 
   return renderedWires.value.find((wire) => wire.id === selectedWireId.value) || null
+})
+
+const nodeVoltageByRoot = computed(() => {
+  const voltages = new Map()
+
+  boardNodes.value.forEach((node) => {
+    const root = continuityState.value.findRoot(node.hole)
+    if (!root) {
+      return
+    }
+
+    const existing = voltages.get(root)
+    if (!existing || node.voltage > existing.voltage) {
+      voltages.set(root, { voltage: node.voltage, current: node.current })
+    }
+  })
+
+  return voltages
+})
+
+const componentBehaviorModel = computed(() => {
+  const knownVoltages = new Map(nodeVoltageByRoot.value)
+  const activeRoots = new Map()
+  const activeEdges = []
+  const warnings = []
+  const resistorEdges = []
+  const zenerParts = []
+  const npnParts = []
+  const ua741Parts = []
+
+  placedParts.value.forEach((part) => {
+    const pins = getPartPinRootMap(part)
+
+    if (part.kind === 'Resistor') {
+      const pinList = [...pins.values()].filter((pin) => pin.root)
+      if (pinList.length >= 2) {
+        resistorEdges.push({
+          id: `resistor-${part.id}`,
+          partId: part.id,
+          resistance: getPartResistance(part),
+          a: pinList[0],
+          b: pinList[1],
+        })
+      }
+      return
+    }
+
+    if (part.id === 'zener') {
+      zenerParts.push({
+        id: `zener-${part.id}`,
+        partId: part.id,
+        anode: findPinByName(pins, /\banode\b|\bA\b/i),
+        cathode: findPinByName(pins, /\bcathode\b|\bK\b/i),
+      })
+      return
+    }
+
+    if (part.id === 'npn') {
+      npnParts.push({
+        id: `npn-${part.id}`,
+        partId: part.id,
+        collector: findPinByName(pins, /\bcollector\b|\bC\b/i),
+        base: findPinByName(pins, /\bbase\b|\bB\b/i),
+        emitter: findPinByName(pins, /\bemitter\b|\bE\b/i),
+      })
+      return
+    }
+
+    if (part.id === 'ua741') {
+      ua741Parts.push({
+        id: `ua741-${part.id}`,
+        partId: part.id,
+        inverting: findPinByName(pins, /^2\b|inverting input/i),
+        nonInverting: findPinByName(pins, /non-inverting/i),
+        negativeSupply: findPinByName(pins, /-VCC|negative supply/i),
+        output: findPinByName(pins, /output/i),
+        positiveSupply: findPinByName(pins, /\+VCC|positive supply/i),
+      })
+    }
+  })
+
+  const readVoltage = (root) => knownVoltages.get(root)?.voltage ?? null
+  const writeVoltage = (root, voltage, current = 0) => {
+    if (!root || voltage == null || !Number.isFinite(voltage)) {
+      return
+    }
+
+    const existing = knownVoltages.get(root)
+    if (!existing || Math.abs(voltage) > Math.abs(existing.voltage)) {
+      knownVoltages.set(root, { voltage, current })
+    } else if (current > (existing.current || 0)) {
+      knownVoltages.set(root, { ...existing, current })
+    }
+  }
+
+  const markRoot = (root, voltage, current = COMPONENT_RULES.minimumVisibleCurrent) => {
+    if (!root) {
+      return
+    }
+
+    const existing = activeRoots.get(root)
+    const nextCurrent = Math.max(existing?.current || 0, current)
+    activeRoots.set(root, {
+      voltage: voltage ?? existing?.voltage ?? readVoltage(root) ?? 0,
+      current: nextCurrent,
+    })
+  }
+
+  const markEdge = (edge) => {
+    if (!edge?.a?.root || !edge?.b?.root) {
+      return
+    }
+
+    activeEdges.push(edge)
+    markRoot(edge.a.root, readVoltage(edge.a.root), edge.current)
+    markRoot(edge.b.root, readVoltage(edge.b.root), edge.current)
+  }
+
+  ua741Parts.forEach((part) => {
+    const positiveVoltage = readVoltage(part.positiveSupply?.root)
+    const negativeVoltage = readVoltage(part.negativeSupply?.root)
+
+    if (positiveVoltage == null || negativeVoltage == null) {
+      warnings.push({ partId: part.partId, level: 'info', label: 'UA741 正負供電腳尚未完整連接。' })
+      return
+    }
+
+    if (positiveVoltage - negativeVoltage < 3) {
+      warnings.push({ partId: part.partId, level: 'warn', label: 'UA741 供電壓差太低。' })
+      return
+    }
+
+    markRoot(part.positiveSupply.root, positiveVoltage, regulatorModel.value.supplyCurrent * 0.04)
+    markRoot(part.negativeSupply.root, negativeVoltage, regulatorModel.value.supplyCurrent * 0.04)
+    writeVoltage(part.output?.root, regulatorModel.value.opAmpOut, regulatorModel.value.baseCurrent)
+    markRoot(part.output?.root, regulatorModel.value.opAmpOut, regulatorModel.value.baseCurrent)
+  })
+
+  for (let pass = 0; pass < 3; pass += 1) {
+    zenerParts.forEach((part) => {
+      const anodeRoot = part.anode?.root
+      const cathodeRoot = part.cathode?.root
+      if (!anodeRoot || !cathodeRoot) {
+        return
+      }
+
+      let anodeVoltage = readVoltage(anodeRoot)
+      let cathodeVoltage = readVoltage(cathodeRoot)
+
+      if (cathodeVoltage == null && anodeVoltage != null) {
+        const sourceEdge = resistorEdges.find((edge) => {
+          const touchesCathode = edge.a.root === cathodeRoot || edge.b.root === cathodeRoot
+          const sourceRoot = edge.a.root === cathodeRoot ? edge.b.root : edge.a.root
+          const sourceVoltage = readVoltage(sourceRoot)
+          return touchesCathode && sourceVoltage != null && sourceVoltage - anodeVoltage >= COMPONENT_RULES.zenerBreakdownVoltage + 0.15
+        })
+
+        if (sourceEdge) {
+          cathodeVoltage = anodeVoltage + COMPONENT_RULES.zenerBreakdownVoltage
+          writeVoltage(cathodeRoot, cathodeVoltage, getEdgeCurrent(sourceEdge, cathodeVoltage, anodeVoltage))
+        }
+      }
+
+      if (anodeVoltage == null && cathodeVoltage != null) {
+        const sinkEdge = resistorEdges.find((edge) => {
+          const touchesAnode = edge.a.root === anodeRoot || edge.b.root === anodeRoot
+          const sinkRoot = edge.a.root === anodeRoot ? edge.b.root : edge.a.root
+          const sinkVoltage = readVoltage(sinkRoot)
+          return touchesAnode && sinkVoltage != null && cathodeVoltage - sinkVoltage >= COMPONENT_RULES.zenerBreakdownVoltage + 0.15
+        })
+
+        if (sinkEdge) {
+          anodeVoltage = cathodeVoltage - COMPONENT_RULES.zenerBreakdownVoltage
+          writeVoltage(anodeRoot, anodeVoltage, getEdgeCurrent(sinkEdge, cathodeVoltage, anodeVoltage))
+        }
+      }
+
+      anodeVoltage = readVoltage(anodeRoot)
+      cathodeVoltage = readVoltage(cathodeRoot)
+      if (anodeVoltage == null || cathodeVoltage == null) {
+        return
+      }
+
+      const reverseVoltage = cathodeVoltage - anodeVoltage
+      const forwardVoltage = anodeVoltage - cathodeVoltage
+      const hasLimiter = hasSeriesResistorOnRoot(cathodeRoot, resistorEdges) || hasSeriesResistorOnRoot(anodeRoot, resistorEdges)
+      if (reverseVoltage >= COMPONENT_RULES.zenerBreakdownVoltage - 0.05) {
+        if (!hasLimiter) {
+          warnings.push({ partId: part.partId, level: 'warn', label: '齊納正在導通，但沒有看到串聯限流電阻。' })
+          return
+        }
+
+        const current = Math.max(regulatorModel.value.zenerCurrent, COMPONENT_RULES.minimumVisibleCurrent)
+        markEdge({ id: part.id, kind: 'zener-breakdown', a: part.cathode, b: part.anode, current })
+      } else if (forwardVoltage >= COMPONENT_RULES.diodeForwardVoltage) {
+        if (!hasLimiter) {
+          warnings.push({ partId: part.partId, level: 'warn', label: '齊納順向導通也需要限流。' })
+          return
+        }
+
+        markEdge({ id: `${part.id}-forward`, kind: 'zener-forward', a: part.anode, b: part.cathode, current: 0.002 })
+      }
+    })
+
+    resistorEdges.forEach((edge) => {
+      const voltageA = readVoltage(edge.a.root)
+      const voltageB = readVoltage(edge.b.root)
+      if (voltageA == null || voltageB == null) {
+        return
+      }
+
+      const current = getEdgeCurrent(edge, voltageA, voltageB)
+      if (current >= COMPONENT_RULES.minimumVisibleCurrent) {
+        markEdge({ ...edge, kind: 'resistor', current })
+      }
+    })
+  }
+
+  npnParts.forEach((part) => {
+    const collectorVoltage = readVoltage(part.collector?.root)
+    const baseVoltage = readVoltage(part.base?.root)
+    const emitterVoltage = readVoltage(part.emitter?.root)
+    const baseHasSeriesResistor = hasSeriesResistorOnRoot(part.base?.root, resistorEdges)
+
+    if (baseVoltage != null && emitterVoltage != null && baseVoltage - emitterVoltage > 1 && !baseHasSeriesResistor) {
+      warnings.push({ partId: part.partId, level: 'warn', label: 'NPN Base 直接接高電位且沒有看到限流電阻。' })
+    }
+
+    if (collectorVoltage == null || baseVoltage == null || emitterVoltage == null) {
+      return
+    }
+
+    const baseEmitter = baseVoltage - emitterVoltage
+    if (baseEmitter > 1 && !baseHasSeriesResistor) {
+      return
+    }
+
+    if (baseEmitter >= COMPONENT_RULES.baseEmitterVoltage - 0.12 && collectorVoltage > emitterVoltage + 0.2) {
+      const current = Math.max(loadCurrent.value, COMPONENT_RULES.minimumVisibleCurrent)
+      markRoot(part.collector.root, collectorVoltage, current)
+      markRoot(part.emitter.root, emitterVoltage, current)
+      markRoot(part.base.root, baseVoltage, regulatorModel.value.baseCurrent)
+      activeEdges.push({ id: part.id, kind: 'npn-controlled', a: part.collector, b: part.emitter, current })
+    }
+  })
+
+  return {
+    activeRoots,
+    activeEdges,
+    warnings,
+    knownVoltages,
+  }
+})
+
+const currentFlowSegments = computed(() => {
+  if (vin.value <= 0 || renderedWires.value.length === 0) {
+    return []
+  }
+
+  const activeRoots = componentBehaviorModel.value.activeRoots
+  if (!activeRoots.size) {
+    return []
+  }
+
+  const strongestCurrent = [...activeRoots.values()].reduce((best, root) => Math.max(best, root.current || 0), 0)
+  const baseSpeed = clamp(0.48 + vin.value * 0.03 + strongestCurrent * 18, 0.65, 2.8)
+  const duration = `${(2 / baseSpeed).toFixed(2)}s`
+  const count = clamp(Math.round(baseSpeed * 2.2), 2, 7)
+  const radius = clamp(1.8 + baseSpeed * 0.35, 2.1, 3.2)
+
+  return renderedWires.value
+    .map((wire) => {
+      const fromRoot = getWireEndpointRoot(wire, 'from')
+      const toRoot = getWireEndpointRoot(wire, 'to')
+      const fromActive = fromRoot ? activeRoots.get(fromRoot) : null
+      const toActive = toRoot ? activeRoots.get(toRoot) : null
+      if (!fromActive && !toActive) {
+        return null
+      }
+
+      const fromVoltage = fromRoot ? componentBehaviorModel.value.knownVoltages.get(fromRoot)?.voltage ?? null : null
+      const toVoltage = toRoot ? componentBehaviorModel.value.knownVoltages.get(toRoot)?.voltage ?? null : null
+      const reverse = toActive && !fromActive || (fromVoltage != null && toVoltage != null && toVoltage > fromVoltage)
+      const points = reverse ? [...wire.points].reverse() : wire.points
+      const path = polylinePath(points)
+      if (!path) {
+        return null
+      }
+
+      return {
+        id: `flow-${wire.id}`,
+        path,
+        duration,
+        radius,
+        particles: Array.from({ length: count }, (_, index) => ({
+          id: `flow-${wire.id}-${index}`,
+          begin: `${(-index * Number.parseFloat(duration) / count).toFixed(2)}s`,
+        })),
+      }
+    })
+    .filter(Boolean)
 })
 
 const wirePreviewPath = computed(() => {
@@ -1010,7 +1359,7 @@ const sameNetWireIds = computed(() => {
       .filter((wire) => {
         return (
           continuityState.value.findRoot(wire.from) === focusedNetRoot.value ||
-          continuityState.value.findRoot(wire.to) === focusedNetRoot.value
+          (wire.to && continuityState.value.findRoot(wire.to) === focusedNetRoot.value)
         )
       })
       .map((wire) => wire.id),
@@ -1590,7 +1939,7 @@ function removeSelectedPart() {
   delete partPlacements[removedPartId]
   selectedPartId.value = ''
   wires.value = wires.value.filter((wire) => {
-    return !connectedHoles.has(wire.from.toUpperCase()) && !connectedHoles.has(wire.to.toUpperCase())
+    return !connectedHoles.has(wire.from.toUpperCase()) && (!wire.to || !connectedHoles.has(wire.to.toUpperCase()))
   })
   
   captureState()
@@ -2083,7 +2432,7 @@ function selectObjectAtConnector(connector) {
   }
 
   const holeName = hole.name.toUpperCase()
-  const wire = [...wires.value].reverse().find((item) => item.from.toUpperCase() === holeName || item.to.toUpperCase() === holeName)
+  const wire = [...wires.value].reverse().find((item) => wireTouchesHole(item, holeName))
   if (wire) {
     selectedWireId.value = wire.id
     selectedPartId.value = ''
@@ -2146,17 +2495,22 @@ function handleBoardPointerUp(event) {
     selectedWireId.value = wireId
     selectedPartId.value = ''
     captureState()
-  } else if (pointer && !releaseConnector) {
-    wireDragState.value = {
-      ...wireDragState.value,
-      bendPoint: currentPoint,
-      currentPoint,
-      currentConnector: null,
-      currentHole: '',
-    }
-    releaseBoardPointer(event)
-    suppressBoardClick = true
-    return
+  } else if (pointer && !releaseConnector && startHole) {
+    const wireId = `user-${nextWireId++}`
+    wires.value = [
+      ...wires.value,
+      {
+        id: wireId,
+        from: startHole.name,
+        toPoint: currentPoint,
+        color: getSelectedWireColor(),
+        width: 3.1,
+        via: wireDragState.value.bendPoint || null,
+      },
+    ]
+    selectedWireId.value = wireId
+    selectedPartId.value = ''
+    captureState()
   }
 
   releaseBoardPointer(event)
@@ -2279,17 +2633,9 @@ function hitTestAtPointer(point, maxDistance = Number.POSITIVE_INFINITY) {
 
   const wireEndHitZone = holePitch.value * 0.8
   for (const wire of renderedWires.value) {
-    const startHole = boardHoleLookup.value.get(wire.from.toUpperCase())
-    if (startHole) {
-      const distance = Math.hypot(startHole.anchor.x - point.x, startHole.anchor.y - point.y)
-      if (distance <= wireEndHitZone && distance <= maxDistance) {
-        return { type: 'wireEnd', wire, distance }
-      }
-    }
-
-    const endHole = boardHoleLookup.value.get(wire.to.toUpperCase())
-    if (endHole) {
-      const distance = Math.hypot(endHole.anchor.x - point.x, endHole.anchor.y - point.y)
+    const endpoints = [wire.start, wire.end].filter(Boolean)
+    for (const endpoint of endpoints) {
+      const distance = Math.hypot(endpoint.x - point.x, endpoint.y - point.y)
       if (distance <= wireEndHitZone && distance <= maxDistance) {
         return { type: 'wireEnd', wire, distance }
       }
@@ -2298,12 +2644,7 @@ function hitTestAtPointer(point, maxDistance = Number.POSITIVE_INFINITY) {
 
   const wireBodyHitZone = holePitch.value * 0.5
   for (const wire of renderedWires.value) {
-    const startHole = boardHoleLookup.value.get(wire.from.toUpperCase())
-    const endHole = boardHoleLookup.value.get(wire.to.toUpperCase())
-    if (!startHole || !endHole) continue
-
-    const points = wire.via ? [startHole.anchor, wire.via, endHole.anchor] : [startHole.anchor, endHole.anchor]
-    const distance = distanceToPolyline(point, points)
+    const distance = distanceToPolyline(point, wire.points)
 
     if (distance <= wireBodyHitZone && distance <= maxDistance) {
       return { type: 'wireBody', wire, distance }
@@ -2434,6 +2775,79 @@ function distanceToSegment(point, start, end) {
   return Math.hypot(point.x - closestX, point.y - closestY)
 }
 
+function getWireEndpointPoint(wire, side) {
+  const holeName = side === 'from' ? wire.from : wire.to
+  if (holeName) {
+    return boardHoleLookup.value.get(holeName.toUpperCase())?.anchor || null
+  }
+
+  return side === 'from' ? wire.fromPoint || null : wire.toPoint || null
+}
+
+function getWireEndpointVoltage(wire, side) {
+  const holeName = side === 'from' ? wire.from : wire.to
+  if (!holeName) {
+    return null
+  }
+
+  const root = continuityState.value.findRoot(holeName)
+  return root ? nodeVoltageByRoot.value.get(root)?.voltage ?? null : null
+}
+
+function getWireEndpointRoot(wire, side) {
+  const holeName = side === 'from' ? wire.from : wire.to
+  return holeName ? continuityState.value.findRoot(holeName) : ''
+}
+
+function wireTouchesHole(wire, holeName) {
+  const normalized = holeName.toUpperCase()
+  return wire.from?.toUpperCase() === normalized || wire.to?.toUpperCase() === normalized
+}
+
+function getPartPinRootMap(part) {
+  const pins = new Map()
+
+  part.package.connectors.forEach((connector) => {
+    const holeName = part.holes?.[connector.id]
+    const root = holeName ? continuityState.value.findRoot(holeName) : ''
+    pins.set(connector.id, {
+      connector,
+      id: connector.id,
+      name: connector.name || '',
+      holeName,
+      root,
+    })
+  })
+
+  return pins
+}
+
+function findPinByName(pins, pattern) {
+  return [...pins.values()].find((pin) => pattern.test(pin.name)) || null
+}
+
+function getPartResistance(part) {
+  const label = (part.label || '').toLowerCase()
+  if (label.includes('470')) return 470
+  if (label.includes('4.7') || label.includes('4k7')) return 4700
+  if (label.includes('10k')) return 10000
+  if (label.includes('1k')) return 1000
+  return 1000
+}
+
+function getEdgeCurrent(edge, voltageA, voltageB) {
+  const resistance = edge?.resistance || 1000
+  if (voltageA == null || voltageB == null) {
+    return COMPONENT_RULES.minimumVisibleCurrent
+  }
+
+  return Math.abs(voltageA - voltageB) / resistance
+}
+
+function hasSeriesResistorOnRoot(root, resistorEdges) {
+  return resistorEdges.some((edge) => edge.a.root === root || edge.b.root === root)
+}
+
 function findNearestHole(point, threshold) {
   let bestHole = null
   let bestDistance = Number.POSITIVE_INFINITY
@@ -2530,6 +2944,15 @@ function routedWirePath(start, end, via) {
   }
 
   return `M ${start.x} ${start.y} L ${via.x} ${via.y} L ${end.x} ${end.y}`
+}
+
+function polylinePath(points) {
+  const validPoints = points.filter(Boolean)
+  if (validPoints.length < 2) {
+    return ''
+  }
+
+  return validPoints.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ')
 }
 
 function buildWireViaPoint(start, end, point) {
@@ -2887,6 +3310,28 @@ function clamp(value, min, max) {
 .runtime-wire.sameNet {
   filter: drop-shadow(0 0 8px rgba(14, 165, 233, 0.62));
   opacity: 1;
+}
+
+.current-flow-layer {
+  pointer-events: none;
+}
+
+.current-flow-trace {
+  fill: none;
+  stroke: rgba(125, 249, 255, 0.22);
+  stroke-width: 5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 7px rgba(34, 211, 238, 0.42));
+}
+
+.current-particle {
+  fill: #fef08a;
+  stroke: rgba(255, 255, 255, 0.82);
+  stroke-width: 0.45px;
+  filter:
+    drop-shadow(0 0 3px rgba(250, 204, 21, 0.95))
+    drop-shadow(0 0 8px rgba(34, 211, 238, 0.68));
 }
 
 .wire-preview {
@@ -3255,20 +3700,6 @@ function clamp(value, min, max) {
   color: #9eb5c8;
 }
 
-.rotation-tools,
-.board-toolbar {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-  margin-top: 10px;
-}
-
-.board-toolbar {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
 .tool-btn {
   border: 1px solid rgba(0, 240, 255, 0.14);
   background: rgba(4, 16, 40, 0.82);
@@ -3348,6 +3779,14 @@ function clamp(value, min, max) {
 
 .inspector-meta small {
   color: #9eb5c8;
+}
+
+.rule-warning strong {
+  color: #fef3c7;
+}
+
+.rule-warning small {
+  color: #fde68a;
 }
 
 .inspector-actions {
@@ -3457,9 +3896,6 @@ function clamp(value, min, max) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .board-toolbar {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 560px) {
@@ -3471,9 +3907,7 @@ function clamp(value, min, max) {
     min-height: 360px;
   }
 
-  .rotation-tools,
   .inspector-actions,
-  .board-toolbar,
   .meter-row {
     grid-template-columns: 1fr;
   }
