@@ -368,10 +368,6 @@ const PART_LAYOUTS = [
   { id: 'r1', match: 'custom_resistor_4k7_u_2x_ultrashort_center_label', kind: 'Resistor', label: '4.7k' },
   { id: 'r2', match: 'custom_resistor_10k_u_2x_ultrashort_center_label', kind: 'Resistor', label: '10k' },
 ]
-  { label: 'Orange', value: '#f97316' },
-  { label: 'Purple', value: '#9333ea' },
-  { label: 'White', value: '#f5f5f5' },
-]
 
 const svgMarkupCache = new Map()
 const svgPreviewCache = new Map()
