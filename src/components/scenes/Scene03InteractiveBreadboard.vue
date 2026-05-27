@@ -431,6 +431,28 @@
         <div class="meter-divider"></div>
 
         <div class="card-head card-head-secondary">
+          <span class="badge badge-slate">Reference</span>
+          <strong>{{ referenceMeasurement?.label ?? 'Vref' }}</strong>
+        </div>
+
+        <div class="meter-hole">{{ referenceMeasurement?.hole ?? '--' }}</div>
+        <div class="meter-voltage meter-voltage-reference">
+          {{ referenceMeasurement ? formatVoltage(referenceMeasurement.voltage) : '--' }}
+        </div>
+        <div class="meter-row">
+          <article>
+            <span>Current</span>
+            <strong>{{ referenceMeasurement ? formatCurrent(referenceMeasurement.current) : '--' }}</strong>
+          </article>
+          <article>
+            <span>Power</span>
+            <strong>{{ referenceMeasurement ? formatPower(referenceMeasurement.power) : '--' }}</strong>
+          </article>
+        </div>
+
+        <div class="meter-divider"></div>
+
+        <div class="card-head card-head-secondary">
           <span class="badge badge-slate">Probe Screen</span>
           <strong>{{ selectedMeasurement?.label ?? '--' }}</strong>
         </div>
@@ -927,21 +949,211 @@ const contextMenuStyle = computed(() => ({
   top: `${contextMenu.y}px`,
 }))
 
+const circuitTopology = computed(() => {
+  const resistorEdges = []
+  let ua741Part = null
+  let npnPart = null
+  let zenerPart = null
+
+  placedParts.value.forEach((part) => {
+    const pins = getPartPinRootMap(part)
+    const partTypeId = part.templateId || part.id
+
+    if (part.kind === 'Resistor') {
+      const pinList = [...pins.values()].filter((pin) => pin.root)
+      if (pinList.length >= 2) {
+        resistorEdges.push({
+          id: `resistor-${part.id}`,
+          partId: part.id,
+          resistance: getPartResistance(part),
+          a: pinList[0],
+          b: pinList[1],
+        })
+      }
+      return
+    }
+
+    if (partTypeId === 'zener' && !zenerPart) {
+      zenerPart = {
+        partId: part.id,
+        anode: findPinByName(pins, /\banode\b|\bA\b/i),
+        cathode: findPinByName(pins, /\bcathode\b|\bK\b/i),
+      }
+      return
+    }
+
+    if (partTypeId === 'npn' && !npnPart) {
+      npnPart = {
+        partId: part.id,
+        collector: findPinByName(pins, /\bcollector\b|\bC\b/i),
+        base: findPinByName(pins, /\bbase\b|\bB\b/i),
+        emitter: findPinByName(pins, /\bemitter\b|\bE\b/i),
+      }
+      return
+    }
+
+    if (partTypeId === 'ua741' && !ua741Part) {
+      ua741Part = {
+        partId: part.id,
+        inverting: findPinByName(pins, /^2\b|inverting input/i),
+        nonInverting: findPinByName(pins, /non-inverting/i),
+        negativeSupply: findPinByName(pins, /-VCC|negative supply/i),
+        output: findPinByName(pins, /output/i),
+        positiveSupply: findPinByName(pins, /\+VCC|positive supply/i),
+      }
+    }
+  })
+
+  const adjacency = new Map()
+  const addAdjacency = (from, to, edge) => {
+    if (!from || !to) {
+      return
+    }
+
+    if (!adjacency.has(from)) {
+      adjacency.set(from, [])
+    }
+
+    adjacency.get(from).push({
+      nextRoot: to,
+      resistance: edge.resistance,
+      edgeId: edge.id,
+    })
+  }
+
+  resistorEdges.forEach((edge) => {
+    addAdjacency(edge.a.root, edge.b.root, edge)
+    addAdjacency(edge.b.root, edge.a.root, edge)
+  })
+
+  const findSeriesPath = (startRoot, targetRoot, blockedRoot = '') => {
+    if (!startRoot || !targetRoot) {
+      return null
+    }
+
+    if (startRoot === targetRoot) {
+      return { resistance: 0, edges: [] }
+    }
+
+    const visited = new Set()
+
+    const dfs = (root) => {
+      if (!root || visited.has(root)) {
+        return null
+      }
+
+      visited.add(root)
+      const branches = adjacency.get(root) || []
+      for (const branch of branches) {
+        if (branch.nextRoot === blockedRoot && branch.nextRoot !== targetRoot) {
+          continue
+        }
+
+        if (branch.nextRoot === targetRoot) {
+          return {
+            resistance: branch.resistance,
+            edges: [branch.edgeId],
+          }
+        }
+
+        const child = dfs(branch.nextRoot)
+        if (child) {
+          return {
+            resistance: branch.resistance + child.resistance,
+            edges: [branch.edgeId, ...child.edges],
+          }
+        }
+      }
+
+      visited.delete(root)
+      return null
+    }
+
+    return dfs(startRoot)
+  }
+
+  const outputRoot = npnPart?.emitter?.root || ''
+  const negativeRoot = ua741Part?.negativeSupply?.root || zenerPart?.anode?.root || ''
+  const invertingRoot = ua741Part?.inverting?.root || ''
+  const nonInvertingRoot = ua741Part?.nonInverting?.root || zenerPart?.cathode?.root || ''
+  const vinRoot = activeSupplyConnection.value?.redHole ? continuityState.value.findRoot(activeSupplyConnection.value.redHole) : ''
+
+  let feedbackFactor = 1
+  let feedbackUpperResistance = 0
+  let feedbackLowerResistance = 0
+  let feedbackMode = 'direct'
+
+  if (outputRoot && invertingRoot && negativeRoot && invertingRoot !== outputRoot) {
+    const upperPath = findSeriesPath(outputRoot, invertingRoot, negativeRoot)
+    const lowerPath = findSeriesPath(invertingRoot, negativeRoot, outputRoot)
+
+    if (upperPath && lowerPath && upperPath.resistance >= 0 && lowerPath.resistance > 0) {
+      feedbackUpperResistance = upperPath.resistance
+      feedbackLowerResistance = lowerPath.resistance
+      feedbackFactor = feedbackLowerResistance / (feedbackUpperResistance + feedbackLowerResistance)
+      feedbackMode = 'divider'
+    }
+  }
+
+  const referenceBiasPath =
+    vinRoot && nonInvertingRoot && vinRoot !== nonInvertingRoot
+      ? findSeriesPath(vinRoot, nonInvertingRoot, negativeRoot)
+      : null
+
+  const loadPath =
+    outputRoot && negativeRoot && outputRoot !== negativeRoot
+      ? resistorEdges
+          .filter((edge) => {
+            const roots = [edge.a.root, edge.b.root]
+            return roots.includes(outputRoot) && roots.includes(negativeRoot)
+          })
+          .sort((left, right) => right.resistance - left.resistance)[0] || null
+      : null
+
+  return {
+    ua741Part,
+    npnPart,
+    zenerPart,
+    resistorEdges,
+    outputRoot,
+    negativeRoot,
+    invertingRoot,
+    nonInvertingRoot,
+    feedbackFactor,
+    feedbackUpperResistance,
+    feedbackLowerResistance,
+    feedbackTotalResistance: feedbackUpperResistance + feedbackLowerResistance,
+    feedbackMode,
+    referenceBiasResistance: referenceBiasPath?.resistance || 1000,
+    vrefHole: zenerPart?.cathode?.holeName || ua741Part?.nonInverting?.holeName || '28K',
+    vplusHole: ua741Part?.nonInverting?.holeName || zenerPart?.cathode?.holeName || '33I',
+    vminusHole: ua741Part?.inverting?.holeName || '32I',
+    output741Hole: ua741Part?.output?.holeName || '33L',
+    baseHole: npnPart?.base?.holeName || '41N',
+    outputHole: npnPart?.emitter?.holeName || '42N',
+    loadHole: loadPath?.a?.root === outputRoot ? loadPath.a.holeName : loadPath?.b?.holeName || '42Q',
+  }
+})
+
 const regulatorModel = computed(() => {
   const vref = vin.value > 6.7 ? 6.2 : Math.max(0, vin.value - 0.45)
-  const nominalVout = 6.2 * (1 + 4.7 / 10)
+  const feedbackFactor = clamp(circuitTopology.value.feedbackFactor || 1, 0.05, 1)
+  const nominalVout = vref / feedbackFactor
   const achievableVout = Math.max(0, vin.value - 1.45 - loadCurrent.value * 0.58)
   const regulationSag = loadCurrent.value * 0.32
   const vout = clamp(Math.min(nominalVout - regulationSag, achievableVout), 0, vin.value - 0.18)
-  const vminus = vout * (10 / 14.7)
+  const vminus = vout * feedbackFactor
   const vplus = vref
   const error = vplus - vminus
   const opAmpOut = clamp(4.2 + error * 3.6, 0.8, Math.max(0.8, vin.value - 1.05))
   const baseVoltage = clamp(Math.min(vout + 0.72, opAmpOut), 0, vin.value - 0.35)
   const beta = 55
   const baseCurrent = loadCurrent.value / beta
-  const feedbackCurrent = vout / 14700
-  const zenerCurrent = Math.max((vin.value - vref) / 470 - feedbackCurrent - baseCurrent * 0.18, 0)
+  const feedbackCurrent =
+    circuitTopology.value.feedbackMode === 'divider' && circuitTopology.value.feedbackTotalResistance > 0
+      ? vout / circuitTopology.value.feedbackTotalResistance
+      : 0
+  const zenerCurrent = Math.max((vin.value - vref) / circuitTopology.value.referenceBiasResistance - feedbackCurrent - baseCurrent * 0.18, 0)
   const supplyCurrent = loadCurrent.value + baseCurrent + feedbackCurrent + zenerCurrent
   const mode = achievableVout < nominalVout - 0.18 ? 'dropout' : Math.abs(error) < 0.08 ? 'regulated' : 'correcting'
 
@@ -954,6 +1166,7 @@ const regulatorModel = computed(() => {
     vout,
     baseCurrent,
     feedbackCurrent,
+    feedbackFactor,
     zenerCurrent,
     supplyCurrent,
     modeLabel: mode === 'dropout' ? 'DROP OUT' : mode === 'regulated' ? 'REGULATING' : 'CORRECTING',
@@ -964,6 +1177,7 @@ const boardNodes = computed(() => {
   const supply = activeSupplyConnection.value
   const vinHole = supply?.redHole || '32topRed'
   const gndHole = supply?.blackHole || '32bottomBlue'
+  const topology = circuitTopology.value
   const nodes = [
     {
       id: 'vin',
@@ -989,7 +1203,7 @@ const boardNodes = computed(() => {
       id: 'vref',
       label: 'Vref',
       shortLabel: 'REF',
-      hole: '28K',
+      hole: topology.vrefHole,
       voltage: regulatorModel.value.vref,
       current: regulatorModel.value.zenerCurrent,
       power: regulatorModel.value.vref * regulatorModel.value.zenerCurrent,
@@ -999,7 +1213,7 @@ const boardNodes = computed(() => {
       id: 'vp',
       label: 'V+',
       shortLabel: 'V+',
-      hole: '33I',
+      hole: topology.vplusHole,
       voltage: regulatorModel.value.vplus,
       current: regulatorModel.value.feedbackCurrent * 0.1,
       power: regulatorModel.value.vplus * regulatorModel.value.feedbackCurrent * 0.1,
@@ -1009,7 +1223,7 @@ const boardNodes = computed(() => {
       id: 'vm',
       label: 'V−',
       shortLabel: 'V-',
-      hole: '32I',
+      hole: topology.vminusHole,
       voltage: regulatorModel.value.vminus,
       current: regulatorModel.value.feedbackCurrent,
       power: regulatorModel.value.vminus * regulatorModel.value.feedbackCurrent,
@@ -1019,7 +1233,7 @@ const boardNodes = computed(() => {
       id: 'out741',
       label: '741 OUT',
       shortLabel: 'OUT',
-      hole: '33L',
+      hole: topology.output741Hole,
       voltage: regulatorModel.value.opAmpOut,
       current: regulatorModel.value.baseCurrent,
       power: regulatorModel.value.opAmpOut * regulatorModel.value.baseCurrent,
@@ -1029,7 +1243,7 @@ const boardNodes = computed(() => {
       id: 'base',
       label: 'NPN Base',
       shortLabel: 'B',
-      hole: '41N',
+      hole: topology.baseHole,
       voltage: regulatorModel.value.baseVoltage,
       current: regulatorModel.value.baseCurrent,
       power: regulatorModel.value.baseVoltage * regulatorModel.value.baseCurrent,
@@ -1039,7 +1253,7 @@ const boardNodes = computed(() => {
       id: 'vl',
       label: 'VL',
       shortLabel: 'VL',
-      hole: '42N',
+      hole: topology.outputHole,
       voltage: regulatorModel.value.vout,
       current: loadCurrent.value,
       power: regulatorModel.value.vout * loadCurrent.value,
@@ -1049,7 +1263,7 @@ const boardNodes = computed(() => {
       id: 'rl',
       label: 'RL',
       shortLabel: 'RL',
-      hole: '42Q',
+      hole: topology.loadHole,
       voltage: regulatorModel.value.vout,
       current: loadCurrent.value,
       power: regulatorModel.value.vout * loadCurrent.value,
@@ -1218,6 +1432,10 @@ const selectedMeasurement = computed(() => {
   }
 
   return boardNodes.value.find((node) => node.id === selectedNodeId.value) || boardNodes.value[0] || null
+})
+
+const referenceMeasurement = computed(() => {
+  return boardNodes.value.find((node) => node.id === 'vref') || null
 })
 
 const meterReadoutStatus = computed(() => {
@@ -4465,6 +4683,11 @@ function clamp(value, min, max) {
   font-size: 1.8rem;
   line-height: 1;
   text-shadow: 0 0 14px rgba(52, 211, 153, 0.32);
+}
+
+.meter-voltage-reference {
+  color: #86efac;
+  text-shadow: 0 0 14px rgba(134, 239, 172, 0.28);
 }
 
 .meter-row {
