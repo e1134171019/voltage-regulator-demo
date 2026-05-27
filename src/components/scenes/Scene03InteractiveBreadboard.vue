@@ -32,7 +32,7 @@
           <svg
             ref="overlaySvgRef"
             class="board-overlay"
-            :class="{ placing: Boolean(pendingPlacementPartId), wiring: wireMode, panning: isPanning }"
+            :class="{ placing: Boolean(pendingPlacementPartId), wiring: wireMode || Boolean(wireDragState), panning: isPanning }"
             :viewBox="overlayViewBox"
             preserveAspectRatio="xMidYMid meet"
             @pointerdown="handleBoardPointerDown"
@@ -83,13 +83,6 @@
                   <circle class="placement-glow-outer" :cx="anchor.x" :cy="anchor.y" r="8.2" />
                   <circle class="placement-glow-inner" :cx="anchor.x" :cy="anchor.y" r="4.8" />
                 </g>
-              </g>
-            </g>
-
-            <g v-if="highlightedNetHoles.length" class="net-highlight-layer">
-              <g v-for="hole in highlightedNetHoles" :key="hole.name">
-                <circle class="net-highlight-outer" :cx="hole.anchor.x" :cy="hole.anchor.y" r="5.8" />
-                <circle class="net-highlight-inner" :cx="hole.anchor.x" :cy="hole.anchor.y" r="2.9" />
               </g>
             </g>
 
@@ -180,7 +173,7 @@
 
         <div class="board-toolbar">
           <button class="tool-btn" :class="{ active: wireMode }" @click="toggleWireMode">
-            {{ wireMode ? '結束插線' : '開始插線' }}
+            {{ wireMode ? '結束插線輔助' : '插線輔助' }}
           </button>
           <button class="tool-btn" @click="resetPlacements">重設</button>
           <button class="tool-btn" @click="clearWires">清線</button>
@@ -763,15 +756,6 @@ const continuityState = computed(() => {
   }
 })
 
-const highlightedNetHoles = computed(() => {
-  const focusHole = pendingWireStart.value || selectedMeasurement.value?.hole || ''
-  if (!focusHole) {
-    return []
-  }
-
-  return continuityState.value.holesFor(focusHole)
-})
-
 const continuitySummary = computed(() => {
   const focusHole = pendingWireStart.value || selectedMeasurement.value?.hole || ''
   if (!focusHole) {
@@ -879,6 +863,10 @@ const inspectorModeLabel = computed(() => {
 
   if (pendingPlacementPartId.value) {
     return 'PLACING PART'
+  }
+
+  if (wireDragState.value || pendingWireStart.value) {
+    return 'WIRING'
   }
 
   if (wireMode.value) {
@@ -1487,7 +1475,7 @@ function handleBoardPointerMove(event) {
 
   hoverBoardPoint.value = pointer
 
-  if (wireMode.value && wireDragState.value) {
+  if (wireDragState.value) {
     const targetHole = findNearestHole(pointer, holePitch.value * 0.9)
     wireDragState.value = {
       ...wireDragState.value,
@@ -1509,7 +1497,6 @@ function handleWheel(event) {
 }
 
 function handleBoardPointerDown(event) {
-  // Check for pan (middle button or spacebar)
   if (event.button === 1 || (event.button === 0 && event.shiftKey)) {
     isPanning.value = true
     panStartX.value = event.clientX
@@ -1517,7 +1504,7 @@ function handleBoardPointerDown(event) {
     return
   }
 
-  if (!wireMode.value) {
+  if (event.button !== 0 || pendingPlacementPartId.value || loadingAssets.value) {
     return
   }
 
@@ -1526,11 +1513,17 @@ function handleBoardPointerDown(event) {
     return
   }
 
+  startWireFromPointer(pointer)
+}
+
+function startWireFromPointer(pointer) {
   const startHole = findNearestHole(pointer, holePitch.value * 0.9)
   if (!startHole) {
     return
   }
 
+  selectedPartId.value = ''
+  selectedWireId.value = ''
   pendingWireStart.value = startHole.name
   wireDragState.value = {
     startHole: startHole.name,
@@ -1539,15 +1532,24 @@ function handleBoardPointerDown(event) {
   }
 }
 
-function handleBoardPointerUp() {
-  // End panning
+function handleBoardPointerUp(event) {
   if (isPanning.value) {
     isPanning.value = false
     return
   }
 
-  if (!wireMode.value || !wireDragState.value) {
+  if (!wireDragState.value) {
     return
+  }
+
+  const pointer = pointerToBoard(event)
+  if (pointer) {
+    const targetHole = findNearestHole(pointer, holePitch.value * 0.9)
+    wireDragState.value = {
+      ...wireDragState.value,
+      currentPoint: pointer,
+      currentHole: targetHole?.name || '',
+    }
   }
 
   const startHole = wireDragState.value.startHole
@@ -1577,7 +1579,7 @@ function handleBoardPointerUp() {
 
 function clearHoverPreview() {
   hoverBoardPoint.value = null
-  if (wireMode.value && wireDragState.value) {
+  if (wireDragState.value) {
     wireDragState.value = {
       ...wireDragState.value,
       currentHole: '',
@@ -1864,7 +1866,7 @@ function clamp(value, min, max) {
 <style scoped>
 .runtime-shell {
   display: grid;
-  grid-template-columns: minmax(250px, 300px) minmax(0, 1fr) minmax(280px, 320px);
+  grid-template-columns: minmax(230px, 280px) minmax(0, 1fr) minmax(220px, 250px);
   gap: 18px;
   align-items: start;
   min-height: 760px;
@@ -2068,17 +2070,6 @@ function clamp(value, min, max) {
   stroke-width: 0.9px;
 }
 
-.net-highlight-outer {
-  fill: rgba(34, 211, 238, 0.16);
-  stroke: rgba(34, 211, 238, 0.48);
-  stroke-width: 1px;
-}
-
-.net-highlight-inner {
-  fill: rgba(103, 232, 249, 0.92);
-  filter: drop-shadow(0 0 5px rgba(34, 211, 238, 0.75));
-}
-
 .part-group {
   cursor: grab;
 }
@@ -2155,18 +2146,18 @@ function clamp(value, min, max) {
   position: relative;
   z-index: 1;
   display: grid;
-  gap: 10px;
-  margin-top: 14px;
+  gap: 7px;
+  margin-top: 10px;
 }
 
 .part-row {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
-  gap: 10px;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 8px;
   align-items: center;
   text-align: left;
-  padding: 12px 14px;
-  border-radius: 18px;
+  padding: 8px 9px;
+  border-radius: 12px;
   border: 1px solid rgba(0, 240, 255, 0.08);
   background: rgba(4, 16, 40, 0.68);
   cursor: pointer;
@@ -2189,9 +2180,9 @@ function clamp(value, min, max) {
 
 .part-row span {
   color: #a5f3fc;
-  font-size: 0.74rem;
+  font-size: 0.62rem;
   font-weight: 800;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -2200,13 +2191,21 @@ function clamp(value, min, max) {
   color: #eff9ff;
 }
 
+.part-row strong {
+  font-size: 0.82rem;
+}
+
+.part-row small {
+  font-size: 0.68rem;
+}
+
 .part-thumb {
-  width: 64px;
-  height: 56px;
+  width: 42px;
+  height: 38px;
   display: grid;
   place-items: center;
-  padding: 6px;
-  border-radius: 14px;
+  padding: 4px;
+  border-radius: 9px;
   background: rgba(3, 12, 28, 0.82);
   border: 1px solid rgba(0, 240, 255, 0.08);
 }
@@ -2262,8 +2261,8 @@ function clamp(value, min, max) {
   z-index: 1;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 14px;
+  gap: 6px;
+  margin-top: 10px;
 }
 
 .board-toolbar {
@@ -2274,9 +2273,10 @@ function clamp(value, min, max) {
   border: 1px solid rgba(0, 240, 255, 0.14);
   background: rgba(4, 16, 40, 0.82);
   color: #e7fbff;
-  border-radius: 14px;
-  padding: 10px 12px;
+  border-radius: 10px;
+  padding: 8px 9px;
   cursor: pointer;
+  font-size: 0.78rem;
   transition: border-color 0.18s ease, transform 0.18s ease;
 }
 
@@ -2410,7 +2410,7 @@ function clamp(value, min, max) {
 
 @media (max-width: 1440px) {
   .runtime-shell {
-    grid-template-columns: minmax(240px, 280px) minmax(0, 1fr) minmax(260px, 300px);
+    grid-template-columns: minmax(220px, 260px) minmax(0, 1fr) minmax(210px, 240px);
   }
 }
 
@@ -2479,12 +2479,12 @@ function clamp(value, min, max) {
   }
 
   .part-row {
-    grid-template-columns: 56px minmax(0, 1fr);
+    grid-template-columns: 42px minmax(0, 1fr);
   }
 
   .part-thumb {
-    width: 56px;
-    height: 48px;
+    width: 42px;
+    height: 38px;
   }
 }
 </style>
