@@ -51,6 +51,13 @@
           <small>{{ meterReadoutDetail }}</small>
         </div>
       </div>
+
+      <div class="panel-card value-display-card">
+        <div class="value-display-stack">
+          <strong class="value-display-primary">{{ primaryDisplayValue }}</strong>
+          <strong class="value-display-secondary">{{ secondaryDisplayValue }}</strong>
+        </div>
+      </div>
     </aside>
 
     <div class="board-column">
@@ -426,50 +433,6 @@
           <button class="tool-btn" :disabled="!selectedPartId" @click="removeSelectedPart">刪除元件</button>
           <button class="tool-btn" :disabled="!selectedWireId" @click="removeSelectedWire">刪除導線</button>
           <button class="tool-btn" :disabled="!hasCancelableAction" @click="clearSelectionState">取消</button>
-        </div>
-
-        <div class="meter-divider"></div>
-
-        <div class="card-head card-head-secondary">
-          <span class="badge badge-slate">Reference</span>
-          <strong>{{ referenceMeasurement?.label ?? 'Vref' }}</strong>
-        </div>
-
-        <div class="meter-hole">{{ referenceMeasurement?.hole ?? '--' }}</div>
-        <div class="meter-voltage meter-voltage-reference">
-          {{ referenceMeasurement ? formatVoltage(referenceMeasurement.voltage) : '--' }}
-        </div>
-        <div class="meter-row">
-          <article>
-            <span>Current</span>
-            <strong>{{ referenceMeasurement ? formatCurrent(referenceMeasurement.current) : '--' }}</strong>
-          </article>
-          <article>
-            <span>Power</span>
-            <strong>{{ referenceMeasurement ? formatPower(referenceMeasurement.power) : '--' }}</strong>
-          </article>
-        </div>
-
-        <div class="meter-divider"></div>
-
-        <div class="card-head card-head-secondary">
-          <span class="badge badge-slate">Probe Screen</span>
-          <strong>{{ selectedMeasurement?.label ?? '--' }}</strong>
-        </div>
-
-        <div class="meter-hole">{{ selectedMeasurement?.hole ?? '--' }}</div>
-        <div class="meter-voltage">
-          {{ selectedMeasurement ? formatVoltage(selectedMeasurement.voltage) : '--' }}
-        </div>
-        <div class="meter-row">
-          <article>
-            <span>Current</span>
-            <strong>{{ selectedMeasurement ? formatCurrent(selectedMeasurement.current) : '--' }}</strong>
-          </article>
-          <article>
-            <span>Power</span>
-            <strong>{{ selectedMeasurement ? formatPower(selectedMeasurement.power) : '--' }}</strong>
-          </article>
         </div>
       </div>
     </aside>
@@ -1072,11 +1035,12 @@ const circuitTopology = computed(() => {
     return dfs(startRoot)
   }
 
+  const supply = supplyTopology.value
   const outputRoot = npnPart?.emitter?.root || ''
-  const negativeRoot = ua741Part?.negativeSupply?.root || zenerPart?.anode?.root || ''
+  const negativeRoot = ua741Part?.negativeSupply?.root || supply?.negativeRoot || zenerPart?.anode?.root || supply?.neutralRoot || ''
   const invertingRoot = ua741Part?.inverting?.root || ''
   const nonInvertingRoot = ua741Part?.nonInverting?.root || zenerPart?.cathode?.root || ''
-  const vinRoot = activeSupplyConnection.value?.redHole ? continuityState.value.findRoot(activeSupplyConnection.value.redHole) : ''
+  const vinRoot = supply?.positiveRoot || ''
 
   let feedbackFactor = 1
   let feedbackUpperResistance = 0
@@ -1136,17 +1100,21 @@ const circuitTopology = computed(() => {
 })
 
 const regulatorModel = computed(() => {
+  const isDualSupply = supplyTopology.value?.mode === 'dual'
+  const positiveRail = vin.value
+  const negativeRail = isDualSupply ? -vin.value : 0
+  const railSpan = positiveRail - negativeRail
   const vref = vin.value > 6.7 ? 6.2 : Math.max(0, vin.value - 0.45)
   const feedbackFactor = clamp(circuitTopology.value.feedbackFactor || 1, 0.05, 1)
   const nominalVout = vref / feedbackFactor
-  const achievableVout = Math.max(0, vin.value - 1.45 - loadCurrent.value * 0.58)
+  const achievableVout = Math.max(0, positiveRail - 1.45 - loadCurrent.value * 0.58)
   const regulationSag = loadCurrent.value * 0.32
-  const vout = clamp(Math.min(nominalVout - regulationSag, achievableVout), 0, vin.value - 0.18)
+  const vout = clamp(Math.min(nominalVout - regulationSag, achievableVout), 0, positiveRail - 0.18)
   const vminus = vout * feedbackFactor
   const vplus = vref
   const error = vplus - vminus
-  const opAmpOut = clamp(4.2 + error * 3.6, 0.8, Math.max(0.8, vin.value - 1.05))
-  const baseVoltage = clamp(Math.min(vout + 0.72, opAmpOut), 0, vin.value - 0.35)
+  const opAmpOut = clamp(4.2 + error * 3.6, negativeRail + 0.8, Math.max(negativeRail + 0.8, positiveRail - 1.05))
+  const baseVoltage = clamp(Math.min(vout + 0.72, opAmpOut), Math.max(0, negativeRail + 0.2), positiveRail - 0.35)
   const beta = 55
   const baseCurrent = loadCurrent.value / beta
   const feedbackCurrent =
@@ -1158,6 +1126,10 @@ const regulatorModel = computed(() => {
   const mode = achievableVout < nominalVout - 0.18 ? 'dropout' : Math.abs(error) < 0.08 ? 'regulated' : 'correcting'
 
   return {
+    positiveRail,
+    neutralRail: 0,
+    negativeRail,
+    railSpan,
     vref,
     vplus,
     vminus,
@@ -1174,30 +1146,41 @@ const regulatorModel = computed(() => {
 })
 
 const boardNodes = computed(() => {
-  const supply = activeSupplyConnection.value
-  const vinHole = supply?.redHole || '32topRed'
-  const gndHole = supply?.blackHole || '32bottomBlue'
+  const supply = supplyTopology.value
+  const positiveHole = supply?.positiveHole || '32topRed'
+  const neutralHole = supply?.neutralHole || '32bottomBlue'
+  const negativeHole = supply?.negativeHole || ''
   const topology = circuitTopology.value
   const nodes = [
     {
-      id: 'vin',
-      label: 'VIN',
-      shortLabel: 'VIN',
-      hole: vinHole,
-      voltage: vin.value,
+      id: 'pvcc',
+      label: '+VCC',
+      shortLabel: '+V',
+      hole: positiveHole,
+      voltage: regulatorModel.value.positiveRail,
       current: regulatorModel.value.supplyCurrent,
-      power: vin.value * regulatorModel.value.supplyCurrent,
+      power: Math.abs(regulatorModel.value.positiveRail * regulatorModel.value.supplyCurrent),
       color: '#ff5f7a',
     },
     {
-      id: 'gnd',
-      label: 'GND',
-      shortLabel: 'GND',
-      hole: gndHole,
+      id: 'n',
+      label: 'N',
+      shortLabel: 'N',
+      hole: neutralHole,
       voltage: 0,
       current: regulatorModel.value.supplyCurrent,
       power: 0,
       color: '#60a5fa',
+    },
+    {
+      id: 'nvcc',
+      label: '-VCC',
+      shortLabel: '-V',
+      hole: negativeHole,
+      voltage: regulatorModel.value.negativeRail,
+      current: regulatorModel.value.supplyCurrent,
+      power: Math.abs(regulatorModel.value.negativeRail * regulatorModel.value.supplyCurrent),
+      color: '#93c5fd',
     },
     {
       id: 'vref',
@@ -1357,6 +1340,8 @@ function getSupplyProbeState(instanceId) {
     instanceId,
     redHole,
     blackHole,
+    redRoot: continuityState.value.findRoot(redHole),
+    blackRoot: continuityState.value.findRoot(blackHole),
   }
 }
 
@@ -1396,16 +1381,53 @@ function getMeterProbeState(instanceId) {
   }
 }
 
-const activeSupplyConnection = computed(() => {
-  for (const instanceId of Object.keys(partPlacements)) {
-    const supply = getSupplyProbeState(instanceId)
-    if (supply) {
-      return supply
+const supplyTopology = computed(() => {
+  const supplies = Object.keys(partPlacements)
+    .map((instanceId) => getSupplyProbeState(instanceId))
+    .filter((supply) => supply?.redRoot && supply?.blackRoot)
+
+  for (let index = 0; index < supplies.length; index += 1) {
+    const supplyA = supplies[index]
+    for (let otherIndex = 0; otherIndex < supplies.length; otherIndex += 1) {
+      if (otherIndex === index) {
+        continue
+      }
+
+      const supplyB = supplies[otherIndex]
+      if (supplyA.blackRoot === supplyB.redRoot) {
+        return {
+          mode: 'dual',
+          positiveSupply: supplyA,
+          negativeSupply: supplyB,
+          positiveHole: supplyA.redHole,
+          positiveRoot: supplyA.redRoot,
+          neutralHole: supplyA.blackHole,
+          neutralRoot: supplyA.blackRoot,
+          negativeHole: supplyB.blackHole,
+          negativeRoot: supplyB.blackRoot,
+        }
+      }
+    }
+  }
+
+  if (supplies[0]) {
+    return {
+      mode: 'single',
+      positiveSupply: supplies[0],
+      negativeSupply: null,
+      positiveHole: supplies[0].redHole,
+      positiveRoot: supplies[0].redRoot,
+      neutralHole: supplies[0].blackHole,
+      neutralRoot: supplies[0].blackRoot,
+      negativeHole: '',
+      negativeRoot: '',
     }
   }
 
   return null
 })
+
+const activeSupplyConnection = computed(() => supplyTopology.value?.positiveSupply || null)
 
 const activeMeterMeasurement = computed(() => {
   if (selectedPartId.value) {
@@ -1436,6 +1458,26 @@ const selectedMeasurement = computed(() => {
 
 const referenceMeasurement = computed(() => {
   return boardNodes.value.find((node) => node.id === 'vref') || null
+})
+
+const primaryDisplayValue = computed(() => {
+  if (activeMeterMeasurement.value && meterReadMode.value) {
+    return meterReadoutValue.value
+  }
+
+  if (selectedMeasurement.value) {
+    return formatVoltage(selectedMeasurement.value.voltage)
+  }
+
+  return '--'
+})
+
+const secondaryDisplayValue = computed(() => {
+  if (referenceMeasurement.value) {
+    return formatVoltage(referenceMeasurement.value.voltage)
+  }
+
+  return '--'
 })
 
 const meterReadoutStatus = computed(() => {
@@ -3906,6 +3948,41 @@ function clamp(value, min, max) {
   display: grid;
   gap: 14px;
   align-content: start;
+}
+
+.value-display-card {
+  min-height: 300px;
+  display: grid;
+  place-items: center;
+}
+
+.value-display-stack {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 28px;
+  width: 100%;
+  text-align: center;
+}
+
+.value-display-primary,
+.value-display-secondary {
+  display: block;
+  font-family: var(--font-mono);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.value-display-primary {
+  color: #bbf7d0;
+  font-size: clamp(2.4rem, 4vw, 3.4rem);
+  text-shadow: 0 0 18px rgba(52, 211, 153, 0.28);
+}
+
+.value-display-secondary {
+  color: #86efac;
+  font-size: clamp(1.9rem, 3vw, 2.5rem);
+  text-shadow: 0 0 14px rgba(134, 239, 172, 0.22);
 }
 
 .control-field {
