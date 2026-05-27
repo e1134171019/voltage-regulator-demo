@@ -34,6 +34,7 @@
             class="board-overlay"
             :class="{ placing: Boolean(pendingPlacementPartId), wiring: wireMode || Boolean(wireDragState), panning: isPanning }"
             :viewBox="overlayViewBox"
+            overflow="visible"
             preserveAspectRatio="xMidYMid meet"
             @pointerdown="handleBoardPointerDown"
             @pointermove="handleBoardPointerMove"
@@ -339,6 +340,7 @@ const panMoved = ref(false)
 let nextWireId = 1
 let suppressPaletteClick = false
 let suppressBoardClick = false
+let connectorClickState = { key: '', count: 0, time: 0 }
 
 // History management for Undo/Redo
 const history = {
@@ -1583,7 +1585,7 @@ function startPartDrag(event, partId) {
     return
   }
 
-  const pointer = pointerToBoard(event)
+  const pointer = pointerToBoard(event, { allowWorkspace: Boolean(wireDragState.value) })
   if (!pointer) {
     return
   }
@@ -1704,7 +1706,7 @@ function handleBoardClick(event) {
     return
   }
 
-  const pointer = pointerToBoard(event)
+  const pointer = pointerToBoard(event, { allowWorkspace: true })
   if (!pointer) {
     return
   }
@@ -1729,7 +1731,7 @@ function handleBoardPointerMove(event) {
     return
   }
 
-  const pointer = pointerToBoard(event)
+  const pointer = pointerToBoard(event, { allowWorkspace: Boolean(wireDragState.value) })
   if (!pointer) {
     return
   }
@@ -1807,7 +1809,7 @@ function handleBoardPointerDown(event) {
     return
   }
 
-  const pointer = pointerToBoard(event)
+  const pointer = pointerToBoard(event, { allowWorkspace: true })
   if (!pointer) {
     return
   }
@@ -1838,6 +1840,11 @@ function handleBoardPointerDown(event) {
   }
 
   if (hitResult.type === 'connector') {
+    if (shouldForceSelectConnector(hitResult.connector) && selectObjectAtConnector(hitResult.connector)) {
+      suppressBoardClick = true
+      return
+    }
+
     captureBoardPointer(event)
     startWireFromConnector(hitResult.connector)
     suppressBoardClick = true
@@ -1881,6 +1888,62 @@ function startWireFromConnector(connector) {
   }
 }
 
+function shouldForceSelectConnector(connector) {
+  if (!connector) {
+    return false
+  }
+
+  const now = window.performance?.now?.() || Date.now()
+  const hole = resolveConnectorToHole(connector)
+  const key = hole?.name || connector.id
+  const isSameTarget = connectorClickState.key === key && now - connectorClickState.time < 850
+
+  connectorClickState = {
+    key,
+    count: isSameTarget ? connectorClickState.count + 1 : 1,
+    time: now,
+  }
+
+  return connectorClickState.count >= 2
+}
+
+function selectObjectAtConnector(connector) {
+  if (!connector) {
+    return false
+  }
+
+  pendingWireStart.value = ''
+  wireDragState.value = null
+
+  if (connector.type === 'partPin' && connector.partId) {
+    selectedPartId.value = connector.partId
+    selectedWireId.value = ''
+    return true
+  }
+
+  const hole = resolveConnectorToHole(connector)
+  if (!hole) {
+    return false
+  }
+
+  const holeName = hole.name.toUpperCase()
+  const wire = [...wires.value].reverse().find((item) => item.from.toUpperCase() === holeName || item.to.toUpperCase() === holeName)
+  if (wire) {
+    selectedWireId.value = wire.id
+    selectedPartId.value = ''
+    return true
+  }
+
+  const ownerPartId = occupiedHoleOwners.value.get(holeName)
+  if (ownerPartId) {
+    selectedPartId.value = ownerPartId
+    selectedWireId.value = ''
+    return true
+  }
+
+  return false
+}
+
 function handleBoardPointerUp(event) {
   if (isPanning.value) {
     if (panMoved.value) {
@@ -1896,7 +1959,7 @@ function handleBoardPointerUp(event) {
     return
   }
 
-  const pointer = pointerToBoard(event)
+  const pointer = pointerToBoard(event, { allowWorkspace: true })
   let releaseConnector = wireDragState.value.currentConnector
   let currentPoint = wireDragState.value.currentPoint
 
@@ -2230,7 +2293,7 @@ function findNearestHole(point, threshold) {
   return bestDistance <= threshold ? bestHole : null
 }
 
-function pointerToBoard(event) {
+function pointerToBoard(event, options = {}) {
   const svg = overlaySvgRef.value
   const viewBox = runtimeViewBox.value
   if (!svg || !viewBox) {
@@ -2250,7 +2313,7 @@ function pointerToBoard(event) {
   const localX = event.clientX - rect.left - offsetX
   const localY = event.clientY - rect.top - offsetY
 
-  if (localX < 0 || localY < 0 || localX > renderedWidth || localY > renderedHeight) {
+  if (!options.allowWorkspace && (localX < 0 || localY < 0 || localX > renderedWidth || localY > renderedHeight)) {
     return null
   }
 
