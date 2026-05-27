@@ -100,7 +100,7 @@
                 class="part-group"
                 :class="{ selected: selectedPartId === part.id, dragging: dragState?.partId === part.id }"
                 :transform="matrixToString(part.displayTransform)"
-                @pointerdown.stop="startPartDrag($event, part.id)"
+                @pointerdown="startPartDrag($event, part.id)"
               >
                 <rect
                   v-if="part.bounds"
@@ -180,7 +180,7 @@
 
         <div class="board-toolbar">
           <button class="tool-btn" :class="{ active: wireMode }" @click="toggleWireMode">
-            {{ wireMode ? '插線 ON' : '插線 OFF' }}
+            {{ wireMode ? '結束插線' : '開始插線' }}
           </button>
           <button class="tool-btn" @click="resetPlacements">重設</button>
           <button class="tool-btn" @click="clearWires">清線</button>
@@ -419,17 +419,30 @@ const conductiveGroups = computed(() => {
 
 const boardViewBox = computed(() => parseViewBox(boardPackage.value?.svgText || ''))
 
-const overlayViewBox = computed(() => {
+const runtimeViewBox = computed(() => {
   const baseViewBox = boardViewBox.value
-  if (!baseViewBox) return '0 0 100 100'
+  if (!baseViewBox) {
+    return {
+      minX: 0,
+      minY: 0,
+      width: 100,
+      height: 100,
+    }
+  }
 
-  // Apply zoom and pan to viewBox
   const zoomedWidth = baseViewBox.width / zoomLevel.value
   const zoomedHeight = baseViewBox.height / zoomLevel.value
-  const minX = baseViewBox.minX + panX.value - (zoomedWidth - baseViewBox.width) / 2
-  const minY = baseViewBox.minY + panY.value - (zoomedHeight - baseViewBox.height) / 2
+  return {
+    minX: baseViewBox.minX + panX.value - (zoomedWidth - baseViewBox.width) / 2,
+    minY: baseViewBox.minY + panY.value - (zoomedHeight - baseViewBox.height) / 2,
+    width: zoomedWidth,
+    height: zoomedHeight,
+  }
+})
 
-  return `${minX} ${minY} ${zoomedWidth} ${zoomedHeight}`
+const overlayViewBox = computed(() => {
+  const { minX, minY, width, height } = runtimeViewBox.value
+  return `${minX} ${minY} ${width} ${height}`
 })
 
 const boardFrameStyle = computed(() => {
@@ -448,6 +461,7 @@ const boardSvgBase = computed(() => {
   }
 
   const svgDoc = new DOMParser().parseFromString(boardPackage.value.svgText, 'image/svg+xml')
+  svgDoc.documentElement.setAttribute('viewBox', overlayViewBox.value)
   svgDoc.documentElement.setAttribute('preserveAspectRatio', 'xMidYMid meet')
   return new XMLSerializer().serializeToString(svgDoc)
 })
@@ -1328,6 +1342,7 @@ function startPartDrag(event, partId) {
     return
   }
 
+  event.stopPropagation()
   selectedPartId.value = partId
   selectedWireId.value = ''
   dragState.value = {
@@ -1667,7 +1682,7 @@ function findNearestHole(point, threshold) {
 
 function pointerToBoard(event) {
   const svg = overlaySvgRef.value
-  const viewBox = boardViewBox.value
+  const viewBox = runtimeViewBox.value
   if (!svg || !viewBox) {
     return null
   }
@@ -1983,7 +1998,6 @@ function clamp(value, min, max) {
 .board-base {
   display: grid;
   place-items: center;
-  padding: 18px;
 }
 
 .board-base :deep(svg),
