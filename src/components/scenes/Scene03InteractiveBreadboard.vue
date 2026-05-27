@@ -338,6 +338,7 @@ const panStartY = ref(0)
 
 let nextWireId = 1
 let suppressPaletteClick = false
+let suppressBoardClick = false
 
 // History management for Undo/Redo
 const history = {
@@ -1117,7 +1118,7 @@ onMounted(async () => {
     loadingAssets.value = true
     packages.value = await loadPublicFritzingPackages()
     resetPlacements()
-    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keydown', handleKeyDown, true)
     window.addEventListener('contextmenu', handleRuntimeContextMenu)
   } catch (error) {
     loadError.value = error instanceof Error ? error.message : String(error)
@@ -1130,7 +1131,7 @@ onUnmounted(() => {
   stopDrag()
   stopPaletteDrag()
   isPanning.value = false
-  window.removeEventListener('keydown', handleKeyDown)
+  window.removeEventListener('keydown', handleKeyDown, true)
   window.removeEventListener('contextmenu', handleRuntimeContextMenu)
 })
 
@@ -1153,7 +1154,7 @@ function handleKeyDown(event) {
     return
   }
 
-  if (event.key === 'Delete' || event.key === 'Backspace') {
+  if (isDeleteKey(event)) {
     if (isEditableKeyTarget(event.target)) {
       return
     }
@@ -1462,6 +1463,10 @@ function getPartConnectedHoleNames(partId) {
   return new Set(Object.values(mapping).filter(Boolean).map((holeName) => holeName.toUpperCase()))
 }
 
+function isDeleteKey(event) {
+  return event.key === 'Delete' || event.key === 'Del' || event.key === 'Backspace' || event.code === 'Delete' || event.code === 'Backspace'
+}
+
 function isEditableKeyTarget(target) {
   if (!(target instanceof HTMLElement)) {
     return false
@@ -1605,6 +1610,7 @@ function startPartDrag(event, partId) {
   }
 
   event.stopPropagation()
+  suppressBoardClick = true
   selectedPartId.value = partId
   selectedWireId.value = ''
   dragState.value = {
@@ -1709,6 +1715,11 @@ function snapPartToBoard(part) {
 }
 
 function handleBoardClick(event) {
+  if (suppressBoardClick) {
+    suppressBoardClick = false
+    return
+  }
+
   const pointer = pointerToBoard(event)
   if (!pointer) {
     return
@@ -1800,17 +1811,20 @@ function handleBoardPointerDown(event) {
   if (hitResult.type === 'connector') {
     captureBoardPointer(event)
     startWireFromConnector(hitResult.connector)
+    suppressBoardClick = true
     return
   }
 
   if (hitResult.type === 'wireEnd' || hitResult.type === 'wireBody') {
     selectWire(hitResult.wire.id)
+    suppressBoardClick = true
     return
   }
 
   if (hitResult.type === 'partBody') {
     selectedPartId.value = hitResult.part.id
     selectedWireId.value = ''
+    suppressBoardClick = true
     return
   }
 
