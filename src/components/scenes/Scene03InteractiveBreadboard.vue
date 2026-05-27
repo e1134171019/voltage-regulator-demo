@@ -60,6 +60,7 @@
                 :stroke="wire.color"
                 :stroke-width="wire.width"
                 @click.stop="selectWire(wire.id)"
+                @contextmenu.stop.prevent="openWireContextMenu($event, wire.id)"
               />
 
               <path
@@ -132,6 +133,7 @@
                 :class="{ selected: selectedPartId === part.id, dragging: dragState?.partId === part.id }"
                 :transform="matrixToString(part.displayTransform)"
                 @pointerdown="startPartDrag($event, part.id)"
+                @contextmenu.stop.prevent="openPartContextMenu($event, part.id)"
               >
                 <rect
                   v-if="part.bounds"
@@ -205,7 +207,7 @@
             :title="`${part.label} - ${part.kind}`"
             @pointerdown.prevent="startPaletteDrag($event, part.id)"
             @click="selectPalettePart(part.id)"
-            @contextmenu.stop.prevent="rotatePalettePart(part.id)"
+            @contextmenu.stop.prevent="openPaletteContextMenu($event, part.id)"
           >
             <div class="part-thumb" v-html="part.previewSvg"></div>
             <div class="part-copy">
@@ -301,6 +303,26 @@
       <div class="part-thumb" v-html="paletteDragPart?.previewSvg || ''"></div>
       <div class="drag-ghost-label">{{ paletteDragPart?.label || 'PART' }}</div>
     </div>
+
+    <div
+      v-if="contextMenu.visible"
+      class="board-context-menu"
+      :style="contextMenuStyle"
+      @pointerdown.stop
+      @click.stop
+      @contextmenu.prevent
+    >
+      <button v-if="contextMenu.kind === 'wire'" @click="deleteContextWire">取消這條線</button>
+      <button v-if="contextMenu.kind === 'wire'" @click="clearSelectionFromMenu">取消選取</button>
+
+      <button v-if="contextMenu.kind === 'part'" @click="rotateContextPart(90)">旋轉 90°</button>
+      <button v-if="contextMenu.kind === 'part'" @click="rotateContextPart(180)">旋轉 180°</button>
+      <button v-if="contextMenu.kind === 'part'" @click="rotateContextPart(270)">旋轉 270°</button>
+      <button v-if="contextMenu.kind === 'part' && selectedPartId" @click="deleteContextPart">刪除元件</button>
+      <button v-if="contextMenu.kind === 'part'" @click="clearSelectionFromMenu">取消選取</button>
+
+      <button v-if="contextMenu.kind === 'wireDraft'" @click="cancelDraftWire">取消拉線</button>
+    </div>
   </section>
 </template>
 
@@ -324,6 +346,13 @@ const hoverBoardPoint = ref(null)
 const wireDragState = ref(null)
 const paletteDragState = ref(null)
 const overlaySvgRef = ref(null)
+const contextMenu = reactive({
+  visible: false,
+  kind: '',
+  targetId: '',
+  x: 0,
+  y: 0,
+})
 const partPlacements = reactive({})
 const partRotations = reactive({})
 const wires = ref([])
@@ -681,6 +710,11 @@ const paletteGhostStyle = computed(() => {
     top: `${paletteDragState.value.clientY + 16}px`,
   }
 })
+
+const contextMenuStyle = computed(() => ({
+  left: `${contextMenu.x}px`,
+  top: `${contextMenu.y}px`,
+}))
 
 const regulatorModel = computed(() => {
   const vref = vin.value > 6.7 ? 6.2 : Math.max(0, vin.value - 0.45)
@@ -1121,6 +1155,12 @@ onUnmounted(() => {
 })
 
 function handleKeyDown(event) {
+  if (contextMenu.visible && event.key === 'Escape') {
+    event.preventDefault()
+    closeContextMenu()
+    return
+  }
+
   if (event.key === 'Escape') {
     event.preventDefault()
     clearSelectionState()
@@ -1211,6 +1251,7 @@ function clearWires() {
 }
 
 function clearSelectionState() {
+  closeContextMenu()
   pendingPlacementPartId.value = ''
   pendingWireStart.value = ''
   selectedPartId.value = ''
@@ -1322,7 +1363,7 @@ function selectPalettePart(partId) {
   selectedPartId.value = ''
 }
 
-function rotatePalettePart(partId) {
+function openPaletteContextMenu(event, partId) {
   if (partPlacements[partId]) {
     selectedPartId.value = partId
     pendingPlacementPartId.value = ''
@@ -1332,7 +1373,19 @@ function rotatePalettePart(partId) {
   }
 
   selectedWireId.value = ''
-  rotateTargetPart(90)
+  openContextMenu(event, 'part', partId)
+}
+
+function openPartContextMenu(event, partId) {
+  selectedPartId.value = partId
+  selectedWireId.value = ''
+  pendingPlacementPartId.value = ''
+  openContextMenu(event, 'part', partId)
+}
+
+function openWireContextMenu(event, wireId) {
+  selectWire(wireId)
+  openContextMenu(event, 'wire', wireId)
 }
 
 function handleRuntimeContextMenu(event) {
@@ -1340,12 +1393,79 @@ function handleRuntimeContextMenu(event) {
     return
   }
 
-  if (!currentTargetPartId.value && !paletteDragState.value) {
+  if (wireDragState.value) {
+    event.preventDefault()
+    openContextMenu(event, 'wireDraft', '')
     return
   }
 
+  if (selectedWireId.value) {
+    event.preventDefault()
+    openContextMenu(event, 'wire', selectedWireId.value)
+    return
+  }
+
+  if (currentTargetPartId.value || paletteDragState.value) {
+    event.preventDefault()
+    openContextMenu(event, 'part', currentTargetPartId.value || paletteDragState.value.partId)
+    return
+  }
+
+  closeContextMenu()
+}
+
+function openContextMenu(event, kind, targetId = '') {
   event.preventDefault()
-  rotateTargetPart(90)
+  contextMenu.visible = true
+  contextMenu.kind = kind
+  contextMenu.targetId = targetId
+  contextMenu.x = Math.min(event.clientX, window.innerWidth - 150)
+  contextMenu.y = Math.min(event.clientY, window.innerHeight - 170)
+}
+
+function closeContextMenu() {
+  contextMenu.visible = false
+  contextMenu.kind = ''
+  contextMenu.targetId = ''
+}
+
+function rotateContextPart(delta) {
+  if (contextMenu.targetId && !partPlacements[contextMenu.targetId]) {
+    pendingPlacementPartId.value = contextMenu.targetId
+    selectedPartId.value = ''
+  }
+
+  rotateTargetPart(delta)
+  closeContextMenu()
+}
+
+function deleteContextWire() {
+  if (contextMenu.targetId) {
+    selectedWireId.value = contextMenu.targetId
+  }
+
+  removeSelectedWire()
+  closeContextMenu()
+}
+
+function deleteContextPart() {
+  if (contextMenu.targetId) {
+    selectedPartId.value = contextMenu.targetId
+  }
+
+  removeSelectedPart()
+  closeContextMenu()
+}
+
+function cancelDraftWire() {
+  pendingWireStart.value = ''
+  wireDragState.value = null
+  closeContextMenu()
+}
+
+function clearSelectionFromMenu() {
+  clearSelectionState()
+  closeContextMenu()
 }
 
 function partStatusLabel(partId) {
@@ -1800,6 +1920,10 @@ function updateBoardPan(event) {
 }
 
 function handleBoardPointerDown(event) {
+  if (contextMenu.visible && event.button === 0) {
+    closeContextMenu()
+  }
+
   if (event.button === 1 || (event.button === 0 && event.shiftKey)) {
     beginBoardPan(event)
     return
@@ -3024,6 +3148,36 @@ function clamp(value, min, max) {
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.06em;
+}
+
+.board-context-menu {
+  position: fixed;
+  z-index: 80;
+  display: grid;
+  min-width: 132px;
+  padding: 5px;
+  border-radius: 6px;
+  border: 1px solid rgba(250, 204, 21, 0.48);
+  background: rgba(4, 11, 28, 0.96);
+  box-shadow: 0 16px 36px rgba(1, 8, 22, 0.44), 0 0 18px rgba(250, 204, 21, 0.2);
+}
+
+.board-context-menu button {
+  border: 0;
+  border-radius: 4px;
+  padding: 7px 9px;
+  background: transparent;
+  color: #f8fafc;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+
+.board-context-menu button:hover {
+  background: rgba(250, 204, 21, 0.18);
+  color: #fef3c7;
 }
 
 .part-copy {
