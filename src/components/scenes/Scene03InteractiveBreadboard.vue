@@ -45,6 +45,12 @@
           >
             <g class="wire-layer">
               <path
+                v-if="selectedRenderedWire"
+                class="selected-wire-halo"
+                :d="selectedRenderedWire.path"
+              />
+
+              <path
                 v-for="wire in renderedWires"
                 :key="wire.id"
                 class="runtime-wire"
@@ -136,6 +142,7 @@
                   rx="2"
                   ry="2"
                 />
+                <g v-html="part.innerSvg"></g>
                 <rect
                   v-if="selectedPartId === part.id && part.bounds"
                   class="selected-part-outline"
@@ -146,7 +153,6 @@
                   rx="3"
                   ry="3"
                 />
-                <g v-html="part.innerSvg"></g>
               </g>
             </g>
 
@@ -876,6 +882,14 @@ const renderedWires = computed(() => {
       }
     })
     .filter(Boolean)
+})
+
+const selectedRenderedWire = computed(() => {
+  if (!selectedWireId.value) {
+    return null
+  }
+
+  return renderedWires.value.find((wire) => wire.id === selectedWireId.value) || null
 })
 
 const wirePreviewPath = computed(() => {
@@ -2637,6 +2651,19 @@ function clamp(value, min, max) {
   opacity: 1;
 }
 
+.selected-wire-halo {
+  fill: none;
+  stroke: rgba(250, 204, 21, 0.96);
+  stroke-width: 9px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.9;
+  pointer-events: none;
+  filter:
+    drop-shadow(0 0 5px rgba(255, 255, 255, 0.86))
+    drop-shadow(0 0 12px rgba(250, 204, 21, 0.78));
+}
+
 .runtime-wire.sameNet {
   filter: drop-shadow(0 0 8px rgba(14, 165, 233, 0.62));
   opacity: 1;
@@ -2744,11 +2771,13 @@ function clamp(value, min, max) {
 }
 
 .selected-part-outline {
-  fill: rgba(34, 211, 238, 0.08);
-  stroke: rgba(34, 211, 238, 0.95);
-  stroke-width: 1.8px;
+  fill: rgba(250, 204, 21, 0.18);
+  stroke: rgba(250, 204, 21, 0.98);
+  stroke-width: 2.8px;
   pointer-events: none;
-  filter: drop-shadow(0 0 7px rgba(34, 211, 238, 0.8));
+  filter:
+    drop-shadow(0 0 5px rgba(255, 255, 255, 0.82))
+    drop-shadow(0 0 12px rgba(250, 204, 21, 0.78));
 }
 
 .connector-status-layer {
