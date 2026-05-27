@@ -32,7 +32,7 @@
           <svg
             ref="overlaySvgRef"
             class="board-overlay"
-            :class="{ placing: Boolean(pendingPlacementPartId), wiring: wireMode }"
+            :class="{ placing: Boolean(pendingPlacementPartId), wiring: wireMode, panning: isPanning }"
             :viewBox="overlayViewBox"
             preserveAspectRatio="xMidYMid meet"
             @pointerdown="handleBoardPointerDown"
@@ -40,6 +40,7 @@
             @pointerup="handleBoardPointerUp"
             @pointerleave="clearHoverPreview"
             @click="handleBoardClick"
+            @wheel.prevent="handleWheel"
           >
             <g class="wire-layer">
               <path
@@ -115,27 +116,29 @@
               </g>
             </g>
 
-            <g class="measure-layer">
-              <g
-                v-for="node in boardNodes"
-                :key="node.id"
-                class="measure-node"
-                :class="{ active: selectedNodeId === node.id }"
-                @click.stop="selectNode(node.id)"
-              >
-                <circle :cx="node.anchor.x" :cy="node.anchor.y" :r="selectedNodeId === node.id ? 5.6 : 4.4" :fill="node.color" />
-                <circle :cx="node.anchor.x" :cy="node.anchor.y" :r="selectedNodeId === node.id ? 8.2 : 6.6" fill="none" :stroke="node.color" />
-                <text :x="node.anchor.x + 5" :y="node.anchor.y - 5">{{ node.shortLabel }}</text>
+            <g class="connector-status-layer">
+              <g v-for="part in renderedParts" :key="`status-${part.id}`" :transform="matrixToString(part.displayTransform)">
+                <circle
+                  v-for="status in part.connectorStatus"
+                  :key="`${part.id}-${status.connector.id}`"
+                  v-show="status.connector.anchor"
+                  class="connector-indicator"
+                  :class="{ connected: status.isConnected, disconnected: !status.isConnected }"
+                  :cx="status.connector.anchor?.x || 0"
+                  :cy="status.connector.anchor?.y || 0"
+                  r="3.2"
+                />
               </g>
-
-              <circle
-                v-if="pendingWireAnchor"
-                class="pending-hole"
-                :cx="pendingWireAnchor.x"
-                :cy="pendingWireAnchor.y"
-                :r="7"
-              />
             </g>
+
+            <!-- Measure layer removed per user request -->
+            <circle
+              v-if="pendingWireAnchor"
+              class="pending-hole"
+              :cx="pendingWireAnchor.x"
+              :cy="pendingWireAnchor.y"
+              :r="7"
+            />
           </svg>
         </template>
       </div>
@@ -284,6 +287,14 @@ const partPlacements = reactive({})
 const partRotations = reactive({})
 const wires = ref([])
 
+// Zoom and pan state
+const zoomLevel = ref(1)
+const panX = ref(0)
+const panY = ref(0)
+const isPanning = ref(false)
+const panStartX = ref(0)
+const panStartY = ref(0)
+
 let nextWireId = 1
 let suppressPaletteClick = false
 
@@ -413,8 +424,16 @@ const conductiveGroups = computed(() => {
 const boardViewBox = computed(() => parseViewBox(boardPackage.value?.svgText || ''))
 
 const overlayViewBox = computed(() => {
-  const viewBox = boardViewBox.value
-  return viewBox ? `${viewBox.minX} ${viewBox.minY} ${viewBox.width} ${viewBox.height}` : '0 0 100 100'
+  const baseViewBox = boardViewBox.value
+  if (!baseViewBox) return '0 0 100 100'
+
+  // Apply zoom and pan to viewBox
+  const zoomedWidth = baseViewBox.width / zoomLevel.value
+  const zoomedHeight = baseViewBox.height / zoomLevel.value
+  const minX = baseViewBox.minX + panX.value - (zoomedWidth - baseViewBox.width) / 2
+  const minY = baseViewBox.minY + panY.value - (zoomedHeight - baseViewBox.height) / 2
+
+  return `${minX} ${minY} ${zoomedWidth} ${zoomedHeight}`
 })
 
 const boardFrameStyle = computed(() => {
@@ -469,12 +488,35 @@ const renderedParts = computed(() => {
       dragState.value?.partId === part.id ? dragState.value.dy : 0,
     )
 
+    // Calculate connector wiring status
+    const connectorStatus = part.package.connectors.map((connector) => {
+      const holeName = part.holes?.[connector.id]
+      if (!holeName || !connector.anchor) {
+        return { connector, holeName, isConnected: false }
+      }
+
+      const connectedHoles = continuityState.value.holesFor(holeName)
+      const isConnected = connectedHoles.length > 1 || wires.value.some(
+        (wire) =>
+          (wire.from.toUpperCase() === holeName.toUpperCase() ||
+            wire.to.toUpperCase() === holeName.toUpperCase()) &&
+          wires.value.filter(
+            (w) =>
+              (w.from.toUpperCase() === holeName.toUpperCase() ||
+                w.to.toUpperCase() === holeName.toUpperCase()),
+          ).length > 0,
+      )
+
+      return { connector, holeName, isConnected }
+    })
+
     return {
       ...part,
       innerSvg,
       bounds,
       baseTransform,
       displayTransform,
+      connectorStatus,
     }
   })
 })
@@ -883,6 +925,7 @@ onMounted(async () => {
 onUnmounted(() => {
   stopDrag()
   stopPaletteDrag()
+  isPanning.value = false
   window.removeEventListener('keydown', handleKeyDown)
 })
 
@@ -949,6 +992,12 @@ function resetPlacements() {
   // Reset history
   history.stack = []
   history.currentIndex = -1
+  
+  // Reset zoom and pan
+  zoomLevel.value = 1
+  panX.value = 0
+  panY.value = 0
+  isPanning.value = false
 }
 
 function clearWires() {
@@ -1406,6 +1455,20 @@ function handleBoardClick(event) {
 }
 
 function handleBoardPointerMove(event) {
+  // Handle panning
+  if (isPanning.value) {
+    const deltaX = event.clientX - panStartX.value
+    const deltaY = event.clientY - panStartY.value
+    
+    // Scale delta by zoom level
+    panX.value -= deltaX / (zoomLevel.value * 50)
+    panY.value -= deltaY / (zoomLevel.value * 50)
+    
+    panStartX.value = event.clientX
+    panStartY.value = event.clientY
+    return
+  }
+
   const pointer = pointerToBoard(event)
   if (!pointer) {
     return
@@ -1423,7 +1486,26 @@ function handleBoardPointerMove(event) {
   }
 }
 
+function handleWheel(event) {
+  event.preventDefault()
+  
+  const delta = event.deltaY > 0 ? 0.9 : 1.1
+  const maxZoom = 4
+  const minZoom = 0.5
+  
+  const newZoom = Math.max(minZoom, Math.min(maxZoom, zoomLevel.value * delta))
+  zoomLevel.value = newZoom
+}
+
 function handleBoardPointerDown(event) {
+  // Check for pan (middle button or spacebar)
+  if (event.button === 1 || (event.button === 0 && event.shiftKey)) {
+    isPanning.value = true
+    panStartX.value = event.clientX
+    panStartY.value = event.clientY
+    return
+  }
+
   if (!wireMode.value) {
     return
   }
@@ -1447,6 +1529,12 @@ function handleBoardPointerDown(event) {
 }
 
 function handleBoardPointerUp() {
+  // End panning
+  if (isPanning.value) {
+    isPanning.value = false
+    return
+  }
+
   if (!wireMode.value || !wireDragState.value) {
     return
   }
@@ -1914,6 +2002,10 @@ function clamp(value, min, max) {
   cursor: crosshair;
 }
 
+.board-overlay.panning {
+  cursor: grabbing;
+}
+
 .board-empty {
   position: absolute;
   inset: 0;
@@ -1987,6 +2079,26 @@ function clamp(value, min, max) {
 
 .part-group.selected {
   filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.35));
+}
+
+.connector-status-layer {
+  pointer-events: none;
+}
+
+.connector-indicator {
+  stroke-width: 0.8px;
+  opacity: 0.88;
+  filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.4));
+}
+
+.connector-indicator.connected {
+  fill: #22c55e;
+  stroke: #4ade80;
+}
+
+.connector-indicator.disconnected {
+  fill: #ef4444;
+  stroke: #f87171;
 }
 
 .part-hitbox {
