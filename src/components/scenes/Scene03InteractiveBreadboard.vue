@@ -1,5 +1,5 @@
 <template>
-  <section class="runtime-shell">
+  <section ref="runtimeShellRef" class="runtime-shell">
     <aside class="control-column">
       <div class="panel-card control-card">
         <div class="card-head">
@@ -346,6 +346,7 @@ const hoverBoardPoint = ref(null)
 const wireDragState = ref(null)
 const paletteDragState = ref(null)
 const overlaySvgRef = ref(null)
+const runtimeShellRef = ref(null)
 const contextMenu = reactive({
   visible: false,
   kind: '',
@@ -955,6 +956,10 @@ const wirePreviewValidation = computed(() => {
     return { state: '', label: '' }
   }
 
+  if (!wireDragState.value.currentConnector && wireDragState.value.currentPoint) {
+    return { state: 'bend', label: 'BEND' }
+  }
+
   return validateWireConnection(wireDragState.value.startConnector, wireDragState.value.currentConnector)
 })
 
@@ -967,6 +972,10 @@ const wirePreviewColor = computed(() => {
 
   if (wirePreviewValidation.value.state === 'invalid') {
     return '#ef4444'
+  }
+
+  if (wirePreviewValidation.value.state === 'bend') {
+    return '#facc15'
   }
 
   return '#2563eb'
@@ -1416,11 +1425,12 @@ function handleRuntimeContextMenu(event) {
 
 function openContextMenu(event, kind, targetId = '') {
   event.preventDefault()
+  const point = clientPointToRuntimeShell(event)
   contextMenu.visible = true
   contextMenu.kind = kind
   contextMenu.targetId = targetId
-  contextMenu.x = Math.min(event.clientX, window.innerWidth - 150)
-  contextMenu.y = Math.min(event.clientY, window.innerHeight - 170)
+  contextMenu.x = point.x
+  contextMenu.y = point.y
 }
 
 function closeContextMenu() {
@@ -1466,6 +1476,28 @@ function cancelDraftWire() {
 function clearSelectionFromMenu() {
   clearSelectionState()
   closeContextMenu()
+}
+
+function clientPointToRuntimeShell(event) {
+  const shell = runtimeShellRef.value
+  if (!shell) {
+    return { x: event.clientX, y: event.clientY }
+  }
+
+  const rect = shell.getBoundingClientRect()
+  const scaleX = rect.width / shell.offsetWidth || 1
+  const scaleY = rect.height / shell.offsetHeight || 1
+  const menuWidth = 150
+  const menuHeight = 180
+  const localX = (event.clientX - rect.left) / scaleX
+  const localY = (event.clientY - rect.top) / scaleY
+  const maxX = Math.max(0, shell.offsetWidth - menuWidth)
+  const maxY = Math.max(0, shell.offsetHeight - menuHeight)
+
+  return {
+    x: clamp(localX, 0, maxX),
+    y: clamp(localY, 0, maxY),
+  }
 }
 
 function partStatusLabel(partId) {
@@ -2651,6 +2683,7 @@ function clamp(value, min, max) {
 
 <style scoped>
 .runtime-shell {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(230px, 280px) minmax(0, 1fr) minmax(170px, 190px);
   gap: 18px;
@@ -2871,6 +2904,10 @@ function clamp(value, min, max) {
   filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.48));
 }
 
+.wire-preview.bend {
+  filter: drop-shadow(0 0 8px rgba(250, 204, 21, 0.55));
+}
+
 .net-feedback-layer {
   pointer-events: none;
 }
@@ -2922,6 +2959,10 @@ function clamp(value, min, max) {
 
 .connector-feedback-label.invalid rect {
   stroke: rgba(239, 68, 68, 0.82);
+}
+
+.connector-feedback-label.bend rect {
+  stroke: rgba(250, 204, 21, 0.86);
 }
 
 .part-preview {
@@ -3151,7 +3192,7 @@ function clamp(value, min, max) {
 }
 
 .board-context-menu {
-  position: fixed;
+  position: absolute;
   z-index: 80;
   display: grid;
   min-width: 132px;
