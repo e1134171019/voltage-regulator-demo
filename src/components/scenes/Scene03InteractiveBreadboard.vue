@@ -172,9 +172,7 @@
         </div>
 
         <div class="board-toolbar">
-          <button class="tool-btn" :class="{ active: wireMode }" @click="toggleWireMode">
-            {{ wireMode ? '結束插線輔助' : '插線輔助' }}
-          </button>
+          <!-- Wire mode toggle removed - universal wire start from any connector -->
           <button class="tool-btn" @click="resetPlacements">重設</button>
           <button class="tool-btn" @click="clearWires">清線</button>
         </div>
@@ -373,6 +371,42 @@ const boardHoleList = computed(() => {
 
 const boardHoleLookup = computed(() => {
   return new Map(boardHoleList.value.map((connector) => [connector.name.toUpperCase(), connector]))
+})
+
+// Unified connector model - merges board holes + part pins
+const allConnectors = computed(() => {
+  const connectors = []
+
+  // Add board holes
+  boardHoleList.value.forEach((hole) => {
+    connectors.push({
+      id: `board-${hole.name}`,
+      type: 'boardHole',
+      position: hole.anchor,
+      parent: { type: 'board', id: 'board' },
+      holeName: hole.name,
+      continuityKey: getHoleContinuityKey(hole.name),
+    })
+  })
+
+  // Add part pins
+  renderedParts.value.forEach((part) => {
+    part.package.connectors.forEach((pin) => {
+      if (!pin.anchor) return
+      const transformedPos = applyMatrix(part.displayTransform, pin.anchor)
+      connectors.push({
+        id: `pin-${part.id}-${pin.id}`,
+        type: 'partPin',
+        position: transformedPos,
+        parent: { type: 'part', id: part.id },
+        partId: part.id,
+        pinId: pin.id,
+        pinName: pin.name,
+      })
+    })
+  })
+
+  return connectors
 })
 
 const occupiedHoleOwners = computed(() => {
@@ -802,14 +836,15 @@ const wirePreviewPath = computed(() => {
     return ''
   }
 
-  const start = boardHoleLookup.value.get(wireDragState.value.startHole.toUpperCase())?.anchor
+  const startConnector = wireDragState.value.startConnector
+  const start = startConnector?.position
+
   if (!start) {
     return ''
   }
 
-  const end = wireDragState.value.currentHole
-    ? boardHoleLookup.value.get(wireDragState.value.currentHole.toUpperCase())?.anchor
-    : wireDragState.value.currentPoint
+  // Use currentConnector if available (hit a target), otherwise use currentPoint
+  const end = wireDragState.value.currentConnector?.position || wireDragState.value.currentPoint
 
   if (!end) {
     return ''
@@ -817,6 +852,7 @@ const wirePreviewPath = computed(() => {
 
   return routedWirePath(start, end, wireDragState.value.currentPoint)
 })
+
 
 const activeSelectionLabel = computed(() => {
   if (pendingPlacementPartId.value) {
@@ -1476,14 +1512,23 @@ function handleBoardPointerMove(event) {
   hoverBoardPoint.value = pointer
 
   if (wireDragState.value) {
-    const targetHole = findNearestHole(pointer, holePitch.value * 0.9)
+    // Use priority hit-test to find target connector
+    const hitResult = hitTestAtPointer(pointer, holePitch.value * 1.2)
+    let targetConnector = null
+    
+    if (hitResult.type === 'connector') {
+      targetConnector = hitResult.connector
+    }
+
     wireDragState.value = {
       ...wireDragState.value,
       currentPoint: pointer,
-      currentHole: targetHole?.name || '',
+      currentConnector: targetConnector,
+      currentHole: targetConnector?.holeName || '', // Keep for backward compatibility
     }
   }
 }
+
 
 function handleWheel(event) {
   event.preventDefault()
@@ -1517,19 +1562,28 @@ function handleBoardPointerDown(event) {
 }
 
 function startWireFromPointer(pointer) {
-  const startHole = findNearestHole(pointer, holePitch.value * 0.9)
-  if (!startHole) {
+  // Use priority hit-test to find connector
+  const hitResult = hitTestAtPointer(pointer, holePitch.value * 1.2)
+
+  // Only start wire from a connector (boardHole or partPin)
+  if (hitResult.type !== 'connector') {
     return
   }
 
+  const connector = hitResult.connector
+
   selectedPartId.value = ''
   selectedWireId.value = ''
-  pendingWireStart.value = startHole.name
+
+  // Store connector info instead of just hole name
+  pendingWireStart.value = connector.id
   wireDragState.value = {
-    startHole: startHole.name,
-    currentPoint: startHole.anchor,
-    currentHole: '',
+    startConnector: connector,
+    currentPoint: connector.position,
+    currentConnector: null,
+    currentHole: '', // Keep for backward compatibility during transition
   }
+}
 }
 
 function handleBoardPointerUp(event) {
@@ -1542,35 +1596,34 @@ function handleBoardPointerUp(event) {
     return
   }
 
-  const pointer = pointerToBoard(event)
-  if (pointer) {
-    const targetHole = findNearestHole(pointer, holePitch.value * 0.9)
-    wireDragState.value = {
-      ...wireDragState.value,
-      currentPoint: pointer,
-      currentHole: targetHole?.name || '',
-    }
-  }
-
-  const startHole = wireDragState.value.startHole
-  const endHole = wireDragState.value.currentHole
+  const startConnector = wireDragState.value.startConnector
+  const endConnector = wireDragState.value.currentConnector
   const currentPoint = wireDragState.value.currentPoint
 
-  if (startHole && endHole && startHole !== endHole) {
-    const startAnchor = boardHoleLookup.value.get(startHole.toUpperCase())?.anchor
-    const endAnchor = boardHoleLookup.value.get(endHole.toUpperCase())?.anchor
-    wires.value = [
-      ...wires.value,
-      {
-        id: `user-${nextWireId++}`,
-        from: startHole,
-        to: endHole,
-        color: '#2563eb',
-        width: 3.1,
-        via: buildWireViaPoint(startAnchor, endAnchor, currentPoint),
-      },
-    ]
-    captureState()
+  // Only allow board hole to board hole connections for now
+  // (compatibility with existing wire model)
+  if (
+    startConnector?.type === 'boardHole' &&
+    endConnector?.type === 'boardHole' &&
+    startConnector.id !== endConnector.id
+  ) {
+    const startHole = boardHoleLookup.value.get(startConnector.holeName.toUpperCase())
+    const endHole = boardHoleLookup.value.get(endConnector.holeName.toUpperCase())
+
+    if (startHole && endHole) {
+      wires.value = [
+        ...wires.value,
+        {
+          id: `user-${nextWireId++}`,
+          from: startConnector.holeName,
+          to: endConnector.holeName,
+          color: getSelectedWireColor(),
+          width: 3.1,
+          via: buildWireViaPoint(startHole.anchor, endHole.anchor, currentPoint),
+        },
+      ]
+      captureState()
+    }
   }
 
   pendingWireStart.value = ''
@@ -1665,6 +1718,90 @@ function computePlacementFromAnchor(part, anchorHoleName, rotation) {
   }
 
   return mapping
+}
+
+// Priority-based hit test: connector > wireEnd > wireBody > partBody > board
+function hitTestAtPointer(point, maxDistance = Number.POSITIVE_INFINITY) {
+  // Priority 1: Board hole or part pin connector
+  const connectorHitZone = holePitch.value * 1.2 // Invisible zone around connector
+  for (const connector of allConnectors.value) {
+    const distance = Math.hypot(connector.position.x - point.x, connector.position.y - point.y)
+    if (distance <= connectorHitZone && distance <= maxDistance) {
+      return {
+        type: 'connector',
+        connector,
+        distance,
+      }
+    }
+  }
+
+  // Priority 2: Wire end (for selecting/deleting wires)
+  const wireEndHitZone = holePitch.value * 0.8
+  for (const wire of renderedWires.value) {
+    // Check wire start point
+    const startHole = boardHoleLookup.value.get(wire.from.toUpperCase())
+    if (startHole) {
+      const distance = Math.hypot(startHole.anchor.x - point.x, startHole.anchor.y - point.y)
+      if (distance <= wireEndHitZone && distance <= maxDistance) {
+        return { type: 'wireEnd', wire, distance }
+      }
+    }
+
+    // Check wire end point
+    const endHole = boardHoleLookup.value.get(wire.to.toUpperCase())
+    if (endHole) {
+      const distance = Math.hypot(endHole.anchor.x - point.x, endHole.anchor.y - point.y)
+      if (distance <= wireEndHitZone && distance <= maxDistance) {
+        return { type: 'wireEnd', wire, distance }
+      }
+    }
+  }
+
+  // Priority 3: Wire body (for selecting wires)
+  const wireBodyHitZone = holePitch.value * 0.5
+  for (const wire of renderedWires.value) {
+    // Simple distance-to-path check (would need more sophisticated math for exact)
+    // For now, just enable clicking on wires with a simpler heuristic
+    const startHole = boardHoleLookup.value.get(wire.from.toUpperCase())
+    const endHole = boardHoleLookup.value.get(wire.to.toUpperCase())
+    if (!startHole || !endHole) continue
+
+    // Check distance to line segment (simplified)
+    const dx = endHole.anchor.x - startHole.anchor.x
+    const dy = endHole.anchor.y - startHole.anchor.y
+    const t = Math.max(0, Math.min(1, ((point.x - startHole.anchor.x) * dx + (point.y - startHole.anchor.y) * dy) / (dx * dx + dy * dy)))
+    const closestX = startHole.anchor.x + t * dx
+    const closestY = startHole.anchor.y + t * dy
+    const distance = Math.hypot(point.x - closestX, point.y - closestY)
+
+    if (distance <= wireBodyHitZone && distance <= maxDistance) {
+      return { type: 'wireBody', wire, distance }
+    }
+  }
+
+  // Priority 4: Part body
+  for (const part of renderedParts.value) {
+    if (!part.bounds) continue
+    const { minX, minY, maxX, maxY } = part.bounds
+    const transformedBounds = {
+      minX: part.displayTransform.e + minX * part.displayTransform.a,
+      minY: part.displayTransform.f + minY * part.displayTransform.d,
+      maxX: part.displayTransform.e + maxX * part.displayTransform.a,
+      maxY: part.displayTransform.f + maxY * part.displayTransform.d,
+    }
+
+    if (
+      point.x >= transformedBounds.minX &&
+      point.x <= transformedBounds.maxX &&
+      point.y >= transformedBounds.minY &&
+      point.y <= transformedBounds.maxY
+    ) {
+      return { type: 'partBody', part, distance: 0 }
+    }
+  }
+
+  // Priority 5: Board (always hit)
+  return { type: 'board', distance: 0 }
 }
 
 function findNearestHole(point, threshold) {
