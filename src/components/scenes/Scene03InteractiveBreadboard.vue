@@ -2128,9 +2128,21 @@ function pointerToBoard(event) {
     return null
   }
 
+  const scale = Math.min(rect.width / viewBox.width, rect.height / viewBox.height)
+  const renderedWidth = viewBox.width * scale
+  const renderedHeight = viewBox.height * scale
+  const offsetX = (rect.width - renderedWidth) / 2
+  const offsetY = (rect.height - renderedHeight) / 2
+  const localX = event.clientX - rect.left - offsetX
+  const localY = event.clientY - rect.top - offsetY
+
+  if (localX < 0 || localY < 0 || localX > renderedWidth || localY > renderedHeight) {
+    return null
+  }
+
   return {
-    x: viewBox.minX + ((event.clientX - rect.left) / rect.width) * viewBox.width,
-    y: viewBox.minY + ((event.clientY - rect.top) / rect.height) * viewBox.height,
+    x: viewBox.minX + localX / scale,
+    y: viewBox.minY + localY / scale,
   }
 }
 
