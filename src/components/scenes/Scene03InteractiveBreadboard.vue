@@ -386,6 +386,7 @@ const allConnectors = computed(() => {
       parent: { type: 'board', id: 'board' },
       holeName: hole.name,
       continuityKey: getHoleContinuityKey(hole.name),
+      hitRadius: getConnectorHitRadius(hole.name, 'boardHole'),
     })
   })
 
@@ -402,6 +403,7 @@ const allConnectors = computed(() => {
         partId: part.id,
         pinId: pin.id,
         pinName: pin.name,
+        hitRadius: getConnectorHitRadius(pin.name, 'partPin'),
       })
     })
   })
@@ -982,7 +984,19 @@ function handleKeyDown(event) {
     return
   }
 
-  if (event.key === 'Delete') {
+  if (event.key === 'Delete' || event.key === 'Backspace') {
+    if (isEditableKeyTarget(event.target)) {
+      return
+    }
+
+    event.preventDefault()
+
+    if (wireDragState.value) {
+      pendingWireStart.value = ''
+      wireDragState.value = null
+      return
+    }
+
     if (pendingWireStart.value) {
       pendingWireStart.value = ''
       return
@@ -1232,10 +1246,30 @@ function removeSelectedPart() {
     return
   }
 
-  delete partPlacements[selectedPartId.value]
+  const removedPartId = selectedPartId.value
+  const connectedHoles = getPartConnectedHoleNames(removedPartId)
+
+  delete partPlacements[removedPartId]
   selectedPartId.value = ''
+  wires.value = wires.value.filter((wire) => {
+    return !connectedHoles.has(wire.from.toUpperCase()) && !connectedHoles.has(wire.to.toUpperCase())
+  })
   
   captureState()
+}
+
+function getPartConnectedHoleNames(partId) {
+  const mapping = partPlacements[partId] || {}
+  return new Set(Object.values(mapping).filter(Boolean).map((holeName) => holeName.toUpperCase()))
+}
+
+function isEditableKeyTarget(target) {
+  if (!(target instanceof HTMLElement)) {
+    return false
+  }
+
+  const tagName = target.tagName.toLowerCase()
+  return target.isContentEditable || tagName === 'input' || tagName === 'textarea' || tagName === 'select'
 }
 
 function selectNode(nodeId) {
@@ -1366,7 +1400,7 @@ function startPartDrag(event, partId) {
     return
   }
 
-  const hitResult = hitTestAtPointer(pointer, holePitch.value * 1.2)
+  const hitResult = hitTestAtPointer(pointer)
   if (hitResult.type === 'connector' && hitResult.connector?.type === 'partPin' && hitResult.connector.partId === partId) {
     return
   }
@@ -1518,7 +1552,7 @@ function handleBoardPointerMove(event) {
 
   if (wireDragState.value) {
     // Use priority hit-test to find target connector
-    const hitResult = hitTestAtPointer(pointer, holePitch.value * 1.2)
+    const hitResult = hitTestAtPointer(pointer)
     let targetConnector = null
     
     if (hitResult.type === 'connector') {
@@ -1563,7 +1597,7 @@ function handleBoardPointerDown(event) {
     return
   }
 
-  const hitResult = hitTestAtPointer(pointer, holePitch.value * 1.2)
+  const hitResult = hitTestAtPointer(pointer)
   if (hitResult.type === 'connector') {
     startWireFromConnector(hitResult.connector)
     return
@@ -1617,7 +1651,7 @@ function handleBoardPointerUp(event) {
   let currentPoint = wireDragState.value.currentPoint
 
   if (pointer) {
-    const hitResult = hitTestAtPointer(pointer, holePitch.value * 1.2)
+    const hitResult = hitTestAtPointer(pointer)
     releaseConnector = hitResult.type === 'connector' ? hitResult.connector : releaseConnector
     currentPoint = pointer
   }
@@ -1737,11 +1771,11 @@ function computePlacementFromAnchor(part, anchorHoleName, rotation) {
 
 // Priority-based hit test: connector > wireEnd > wireBody > partBody > board
 function hitTestAtPointer(point, maxDistance = Number.POSITIVE_INFINITY) {
-  const connectorHitZone = holePitch.value * 1.2
   const connectorCandidates = []
 
   for (const connector of allConnectors.value) {
     const distance = Math.hypot(connector.position.x - point.x, connector.position.y - point.y)
+    const connectorHitZone = connector.hitRadius || getConnectorHitRadius(connector.holeName || connector.pinName, connector.type)
     if (distance <= connectorHitZone && distance <= maxDistance) {
       connectorCandidates.push({ type: 'connector', connector, distance })
     }
@@ -1970,6 +2004,22 @@ function getHoleContinuityKey(name) {
 
   const band = getSignalBand(normalized)
   return band ? `ROW:${row}:${band}` : ''
+}
+
+function getConnectorHitRadius(name, type) {
+  if (type === 'partPin') {
+    return holePitch.value * 1.45
+  }
+
+  if (isRailHoleName(name)) {
+    return holePitch.value * 1.75
+  }
+
+  return holePitch.value * 1.25
+}
+
+function isRailHoleName(name) {
+  return /\d+(topBlue|topRed|bottomBlue|bottomRed)$/i.test((name || '').trim())
 }
 
 function getSignalBand(column) {
