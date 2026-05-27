@@ -2630,6 +2630,15 @@ function selectNode(nodeId) {
   selectedWireId.value = ''
 }
 
+function setMeterReadMode(mode) {
+  if (!activeMeterMeasurement.value) {
+    meterReadMode.value = ''
+    return
+  }
+
+  meterReadMode.value = mode
+}
+
 function findPackage(fragment) {
   return packages.value.find((item) => item.moduleId.toLowerCase().includes(fragment.toLowerCase())) || null
 }
