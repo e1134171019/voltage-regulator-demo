@@ -464,7 +464,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { loadPublicFritzingPackages } from '../utils/fritzingRuntime.js'
 
 const loadingAssets = ref(true)
@@ -505,6 +505,8 @@ const panStartX = ref(0)
 const panStartY = ref(0)
 const panMoved = ref(false)
 
+const RUNTIME_STORAGE_KEY = 'slide03-runtime-state-v1'
+
 let nextWireId = 1
 let nextPartInstanceId = 1
 let suppressPaletteClick = false
@@ -535,6 +537,7 @@ function captureState() {
   
   history.stack.push(state)
   history.currentIndex = history.stack.length - 1
+  persistRuntimeState()
 }
 
 function undo() {
@@ -561,6 +564,58 @@ function restoreState(state) {
   wires.value = JSON.parse(JSON.stringify(state.wires))
   nextWireId = state.nextWireId
   nextPartInstanceId = state.nextPartInstanceId || 1
+}
+
+function serializeRuntimeState() {
+  return {
+    partPlacements: JSON.parse(JSON.stringify(partPlacements)),
+    pendingTemplateRotations: JSON.parse(JSON.stringify(pendingTemplateRotations)),
+    wires: JSON.parse(JSON.stringify(wires.value)),
+    nextWireId,
+    nextPartInstanceId,
+    vin: vin.value,
+    loadCurrent: loadCurrent.value,
+    meterReadMode: meterReadMode.value,
+  }
+}
+
+function persistRuntimeState() {
+  try {
+    window.localStorage.setItem(RUNTIME_STORAGE_KEY, JSON.stringify(serializeRuntimeState()))
+  } catch (error) {
+    console.warn('Failed to persist slide 3 runtime state:', error)
+  }
+}
+
+function restorePersistedRuntimeState() {
+  try {
+    const raw = window.localStorage.getItem(RUNTIME_STORAGE_KEY)
+    if (!raw) {
+      return false
+    }
+
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object') {
+      return false
+    }
+
+    restoreState({
+      partPlacements: parsed.partPlacements || {},
+      pendingTemplateRotations: parsed.pendingTemplateRotations || {},
+      wires: parsed.wires || [],
+      nextWireId: parsed.nextWireId || 1,
+      nextPartInstanceId: parsed.nextPartInstanceId || 1,
+    })
+
+    vin.value = Number.isFinite(parsed.vin) ? parsed.vin : 12
+    loadCurrent.value = Number.isFinite(parsed.loadCurrent) ? parsed.loadCurrent : 0.28
+    meterReadMode.value = typeof parsed.meterReadMode === 'string' ? parsed.meterReadMode : ''
+    captureState()
+    return true
+  } catch (error) {
+    console.warn('Failed to restore slide 3 runtime state:', error)
+    return false
+  }
 }
 
 const wireColorOptions = [
@@ -2125,11 +2180,20 @@ const hasCancelableAction = computed(() => {
   )
 })
 
+watch([vin, loadCurrent, meterReadMode], () => {
+  if (!loadingAssets.value) {
+    persistRuntimeState()
+  }
+})
+
 onMounted(async () => {
   try {
     loadingAssets.value = true
     packages.value = await loadPublicFritzingPackages()
-    resetPlacements()
+    if (!restorePersistedRuntimeState()) {
+      resetPlacements()
+      captureState()
+    }
     window.addEventListener('keydown', handleKeyDown, true)
     window.addEventListener('contextmenu', handleRuntimeContextMenu)
   } catch (error) {
@@ -2239,6 +2303,7 @@ function resetPlacements() {
   panY.value = 0
   isPanning.value = false
   panMoved.value = false
+  meterReadMode.value = ''
 }
 
 function clearWires() {
