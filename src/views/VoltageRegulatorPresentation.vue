@@ -70,6 +70,7 @@ import Slide07CircuitOverview from '../components/presentation/slides/Slide07Cir
 import Slide08ClosedLoop from '../components/presentation/slides/Slide08ClosedLoop.vue'
 import Slide09ExperimentSummary from '../components/presentation/slides/Slide09ExperimentSummary.vue'
 import Slide10LaunchLinks from '../components/presentation/slides/Slide10LaunchLinks.vue'
+import BlankSlide from '../components/presentation/slides/BlankSlide.vue'
 
 const currentSlide = ref(0)
 const workspaceRef = ref(null)
@@ -86,13 +87,13 @@ const slideList = [
   { title: '日常生活應用', component: Slide01Opening },
   { title: '手機錄影場景', component: Slide02PhoneLoad, immersive: true },
   { title: '完整定電壓電路總覽', component: Slide07CircuitOverview },
-  { title: 'Vref：電壓參考', component: Slide04ZenerReference },
-  { title: 'V+：UA741 同相輸入', component: Slide05OpAmpControl },
-  { title: 'V−：UA741 反相輸入', component: Slide08ClosedLoop },
-  { title: 'UA741 OUT：修正訊號', component: Slide05OpAmpControl },
-  { title: 'NPN Base：控制端與輸出調整', component: Slide06PowerTransistor },
-  { title: 'VL：輸出電壓量測', component: Slide09ExperimentSummary },
-  { title: 'RL：負載變化與電流', component: Slide03VoltageDrop },
+  { title: 'Vref：電壓參考', component: BlankSlide },
+  { title: 'V+：UA741 同相輸入', component: BlankSlide },
+  { title: 'V−：UA741 反相輸入', component: BlankSlide },
+  { title: 'UA741 OUT：修正訊號', component: BlankSlide },
+  { title: 'NPN Base：控制端與輸出調整', component: BlankSlide },
+  { title: 'VL：輸出電壓量測', component: BlankSlide },
+  { title: 'RL：負載變化與電流', component: BlankSlide },
   { title: '結語', component: Slide10LaunchLinks },
 ]
 

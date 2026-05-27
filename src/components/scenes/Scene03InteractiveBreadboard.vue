@@ -3453,13 +3453,17 @@ function clamp(value, min, max) {
   grid-template-columns: minmax(230px, 280px) minmax(0, 1fr) minmax(170px, 190px);
   gap: 18px;
   align-items: start;
+  height: 100%;
   min-height: 0;
+  overflow: hidden;
 }
 
 .control-column,
 .tool-column {
   display: grid;
+  align-content: start;
   gap: 14px;
+  min-height: 0;
 }
 
 .panel-card {
@@ -3597,16 +3601,20 @@ function clamp(value, min, max) {
 
 .board-column {
   display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
   gap: 18px;
   align-items: start;
   justify-items: center;
+  min-height: 0;
+  height: 100%;
 }
 
 .board-frame {
   position: relative;
   width: 100%;
   max-width: 1100px;
-  min-height: 430px;
+  min-height: 0;
+  height: 100%;
   border-radius: 30px;
   border: 1px solid rgba(0, 240, 255, 0.16);
   background:
@@ -3622,12 +3630,13 @@ function clamp(value, min, max) {
   grid-template-columns: minmax(420px, 1fr) minmax(360px, 0.9fr);
   gap: 18px;
   align-items: stretch;
+  min-height: 0;
 }
 
 .schematic-card,
 .explain-panel {
   width: 100%;
-  min-height: 210px;
+  min-height: 0;
   justify-self: stretch;
   padding: 16px;
   border-radius: 8px;
@@ -3643,7 +3652,7 @@ function clamp(value, min, max) {
   position: relative;
   z-index: 1;
   width: 100%;
-  height: min(170px, 22vh);
+  height: clamp(124px, 15vh, 170px);
   margin-top: 12px;
   display: block;
 }
@@ -4373,7 +4382,7 @@ function clamp(value, min, max) {
   }
 
   .board-frame {
-    min-height: 440px;
+    min-height: 0;
     border-radius: 24px;
   }
 
@@ -4386,7 +4395,7 @@ function clamp(value, min, max) {
   }
 
   .schematic-svg {
-    height: 230px;
+    height: 180px;
   }
 
 }
@@ -4397,7 +4406,7 @@ function clamp(value, min, max) {
   }
 
   .board-frame {
-    min-height: 360px;
+    min-height: 300px;
   }
 
   .inspector-actions,
