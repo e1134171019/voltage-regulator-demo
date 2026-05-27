@@ -47,7 +47,7 @@
                 v-for="wire in renderedWires"
                 :key="wire.id"
                 class="runtime-wire"
-                :class="{ selected: selectedWireId === wire.id }"
+                :class="{ selected: selectedWireId === wire.id, sameNet: sameNetWireIds.has(wire.id) }"
                 :d="wire.path"
                 :stroke="wire.color"
                 :stroke-width="wire.width"
@@ -57,10 +57,58 @@
               <path
                 v-if="wirePreviewPath"
                 class="runtime-wire wire-preview"
+                :class="wirePreviewState"
                 :d="wirePreviewPath"
-                stroke="#2563eb"
+                :stroke="wirePreviewColor"
                 stroke-width="3.2"
               />
+            </g>
+
+            <g class="net-feedback-layer">
+              <circle
+                v-for="hole in sameNetHighlightHoles"
+                :key="`net-${hole.name}`"
+                class="same-net-hole"
+                :cx="hole.anchor.x"
+                :cy="hole.anchor.y"
+                :r="sameNetHighlightRadius"
+              />
+
+              <circle
+                v-for="connector in sameNetPartPinHighlights"
+                :key="`net-pin-${connector.id}`"
+                class="same-net-pin"
+                :cx="connector.position.x"
+                :cy="connector.position.y"
+                :r="sameNetPinRadius"
+              />
+
+              <circle
+                v-if="wireDragState?.startConnector"
+                class="connector-focus connector-focus-start"
+                :cx="wireDragState.startConnector.position.x"
+                :cy="wireDragState.startConnector.position.y"
+                :r="connectorFocusRadius"
+              />
+
+              <circle
+                v-if="connectorHoverMarker"
+                class="connector-focus"
+                :class="connectorHoverMarker.state"
+                :cx="connectorHoverMarker.position.x"
+                :cy="connectorHoverMarker.position.y"
+                :r="connectorFocusRadius"
+              />
+
+              <g
+                v-if="connectorFeedbackLabel"
+                class="connector-feedback-label"
+                :class="connectorFeedbackLabel.state"
+                :transform="`translate(${connectorFeedbackLabel.x} ${connectorFeedbackLabel.y})`"
+              >
+                <rect x="0" y="-10" width="52" height="13" rx="2" />
+                <text x="5" y="0">{{ connectorFeedbackLabel.text }}</text>
+              </g>
             </g>
 
             <g v-if="placementPreview" class="preview-layer">
@@ -853,6 +901,123 @@ const wirePreviewPath = computed(() => {
   }
 
   return routedWirePath(start, end, wireDragState.value.currentPoint)
+})
+
+const wirePreviewValidation = computed(() => {
+  if (!wireDragState.value) {
+    return { state: '', label: '' }
+  }
+
+  return validateWireConnection(wireDragState.value.startConnector, wireDragState.value.currentConnector)
+})
+
+const wirePreviewState = computed(() => wirePreviewValidation.value.state)
+
+const wirePreviewColor = computed(() => {
+  if (wirePreviewValidation.value.state === 'valid') {
+    return '#22c55e'
+  }
+
+  if (wirePreviewValidation.value.state === 'invalid') {
+    return '#ef4444'
+  }
+
+  return '#2563eb'
+})
+
+const hoverConnector = computed(() => {
+  if (!hoverBoardPoint.value || pendingPlacementPartId.value || loadingAssets.value || dragState.value) {
+    return null
+  }
+
+  const hitResult = hitTestAtPointer(hoverBoardPoint.value)
+  return hitResult.type === 'connector' ? hitResult.connector : null
+})
+
+const focusedConnector = computed(() => {
+  return wireDragState.value?.currentConnector || wireDragState.value?.startConnector || hoverConnector.value || null
+})
+
+const focusedHole = computed(() => resolveConnectorToHole(focusedConnector.value))
+
+const focusedNetRoot = computed(() => {
+  return focusedHole.value ? continuityState.value.findRoot(focusedHole.value.name) : ''
+})
+
+const sameNetHighlightHoles = computed(() => {
+  if (!focusedHole.value || pendingPlacementPartId.value) {
+    return []
+  }
+
+  return continuityState.value.holesFor(focusedHole.value.name)
+})
+
+const sameNetWireIds = computed(() => {
+  if (!focusedNetRoot.value) {
+    return new Set()
+  }
+
+  return new Set(
+    wires.value
+      .filter((wire) => {
+        return (
+          continuityState.value.findRoot(wire.from) === focusedNetRoot.value ||
+          continuityState.value.findRoot(wire.to) === focusedNetRoot.value
+        )
+      })
+      .map((wire) => wire.id),
+  )
+})
+
+const sameNetPartPinHighlights = computed(() => {
+  if (!focusedNetRoot.value || pendingPlacementPartId.value) {
+    return []
+  }
+
+  return allConnectors.value.filter((connector) => {
+    if (connector.type !== 'partPin') {
+      return false
+    }
+
+    const hole = resolveConnectorToHole(connector)
+    return hole && continuityState.value.findRoot(hole.name) === focusedNetRoot.value
+  })
+})
+
+const connectorFocusRadius = computed(() => Math.max(5.4, holePitch.value * 0.74))
+const sameNetHighlightRadius = computed(() => Math.max(3.4, holePitch.value * 0.44))
+const sameNetPinRadius = computed(() => Math.max(4.4, holePitch.value * 0.56))
+
+const connectorHoverMarker = computed(() => {
+  const connector = wireDragState.value?.currentConnector || hoverConnector.value
+  if (!connector) {
+    return null
+  }
+
+  const validation = wireDragState.value
+    ? validateWireConnection(wireDragState.value.startConnector, connector)
+    : { state: 'hover' }
+
+  return {
+    position: connector.position,
+    state: validation.state,
+  }
+})
+
+const connectorFeedbackLabel = computed(() => {
+  if (!wireDragState.value?.currentPoint) {
+    return null
+  }
+
+  const validation = wirePreviewValidation.value
+  const point = wireDragState.value.currentConnector?.position || wireDragState.value.currentPoint
+
+  return {
+    x: point.x + holePitch.value * 0.75,
+    y: point.y - holePitch.value * 0.75,
+    state: validation.state,
+    text: validation.label,
+  }
 })
 
 
@@ -1659,8 +1824,9 @@ function handleBoardPointerUp(event) {
   const startConnector = wireDragState.value.startConnector
   const startHole = resolveConnectorToHole(startConnector)
   const endHole = resolveConnectorToHole(releaseConnector)
+  const validation = validateWireConnection(startConnector, releaseConnector)
 
-  if (startHole && endHole && startHole.name.toUpperCase() !== endHole.name.toUpperCase()) {
+  if (validation.state === 'valid' && startHole && endHole) {
     wires.value = [
       ...wires.value,
       {
@@ -1685,6 +1851,7 @@ function clearHoverPreview() {
     wireDragState.value = {
       ...wireDragState.value,
       currentHole: '',
+      currentConnector: null,
     }
   }
 }
@@ -1851,6 +2018,34 @@ function resolveConnectorToHole(connector) {
   }
 
   return null
+}
+
+function validateWireConnection(startConnector, endConnector) {
+  if (!startConnector || !endConnector) {
+    return { state: 'invalid', label: 'NO TARGET' }
+  }
+
+  if (startConnector.id === endConnector.id) {
+    return { state: 'invalid', label: 'SAME POINT' }
+  }
+
+  const startHole = resolveConnectorToHole(startConnector)
+  const endHole = resolveConnectorToHole(endConnector)
+  if (!startHole || !endHole) {
+    return { state: 'invalid', label: 'NO NODE' }
+  }
+
+  if (startHole.name.toUpperCase() === endHole.name.toUpperCase()) {
+    return { state: 'invalid', label: 'SAME HOLE' }
+  }
+
+  const startRoot = continuityState.value.findRoot(startHole.name)
+  const endRoot = continuityState.value.findRoot(endHole.name)
+  if (startRoot && endRoot && startRoot === endRoot) {
+    return { state: 'invalid', label: 'SAME NET' }
+  }
+
+  return { state: 'valid', label: 'CONNECT' }
 }
 
 function pointInTransformedBounds(point, bounds, transform) {
@@ -2299,11 +2494,91 @@ function clamp(value, min, max) {
   filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.48));
 }
 
+.runtime-wire.sameNet {
+  filter: drop-shadow(0 0 8px rgba(14, 165, 233, 0.62));
+  opacity: 1;
+}
+
 .wire-preview {
   stroke-dasharray: 10 7;
   opacity: 0.92;
   filter: drop-shadow(0 0 8px rgba(37, 99, 235, 0.55));
   pointer-events: none;
+}
+
+.wire-preview.valid {
+  filter: drop-shadow(0 0 8px rgba(34, 197, 94, 0.55));
+}
+
+.wire-preview.invalid {
+  filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.48));
+}
+
+.net-feedback-layer {
+  pointer-events: none;
+}
+
+.same-net-hole {
+  fill: rgba(56, 189, 248, 0.2);
+  stroke: rgba(14, 165, 233, 0.78);
+  stroke-width: 0.9px;
+  filter: drop-shadow(0 0 4px rgba(14, 165, 233, 0.38));
+}
+
+.same-net-pin {
+  fill: rgba(56, 189, 248, 0.24);
+  stroke: rgba(125, 211, 252, 0.9);
+  stroke-width: 1.2px;
+  filter: drop-shadow(0 0 5px rgba(14, 165, 233, 0.48));
+}
+
+.connector-focus {
+  fill: rgba(250, 204, 21, 0.22);
+  stroke: #facc15;
+  stroke-width: 1.6px;
+  filter: drop-shadow(0 0 7px rgba(250, 204, 21, 0.62));
+}
+
+.connector-focus-start {
+  fill: rgba(59, 130, 246, 0.18);
+  stroke: #60a5fa;
+}
+
+.connector-focus.valid {
+  fill: rgba(34, 197, 94, 0.2);
+  stroke: #22c55e;
+  filter: drop-shadow(0 0 7px rgba(34, 197, 94, 0.62));
+}
+
+.connector-focus.invalid {
+  fill: rgba(239, 68, 68, 0.18);
+  stroke: #ef4444;
+  filter: drop-shadow(0 0 7px rgba(239, 68, 68, 0.56));
+}
+
+.connector-feedback-label {
+  font-family: var(--font-mono);
+  font-size: 4.4px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.connector-feedback-label rect {
+  fill: rgba(2, 8, 18, 0.9);
+  stroke: rgba(148, 163, 184, 0.6);
+  stroke-width: 0.6px;
+}
+
+.connector-feedback-label text {
+  fill: #e5edf7;
+}
+
+.connector-feedback-label.valid rect {
+  stroke: rgba(34, 197, 94, 0.86);
+}
+
+.connector-feedback-label.invalid rect {
+  stroke: rgba(239, 68, 68, 0.82);
 }
 
 .part-preview {
