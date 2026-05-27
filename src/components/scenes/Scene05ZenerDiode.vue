@@ -370,7 +370,7 @@ h2 {
 .math-block {
   background: #0f172a;
   color: #38bdf8;
-  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 1.15rem;
   text-align: center;
   padding: 14px;

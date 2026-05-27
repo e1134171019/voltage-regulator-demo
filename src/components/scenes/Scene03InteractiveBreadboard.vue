@@ -1915,7 +1915,7 @@ function clamp(value, min, max) {
   color: #a5f3fc;
   font-size: 0.68rem;
   font-weight: 800;
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-mono);
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
@@ -2022,7 +2022,7 @@ function clamp(value, min, max) {
   display: grid;
   place-items: center;
   color: #9eb5c8;
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-mono);
   letter-spacing: 0.14em;
 }
 
@@ -2122,7 +2122,7 @@ function clamp(value, min, max) {
 }
 
 .measure-node text {
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-mono);
   font-size: 3.2px;
   font-weight: 700;
   fill: #03111f;
@@ -2382,7 +2382,7 @@ function clamp(value, min, max) {
   position: relative;
   z-index: 1;
   color: #bbf7d0;
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-mono);
   font-size: 1.8rem;
   line-height: 1;
   text-shadow: 0 0 14px rgba(52, 211, 153, 0.32);

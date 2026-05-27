@@ -931,7 +931,7 @@ function buildPlacementBoardSvg(svgText, rows, focusId) {
       stroke-width: 2.8px;
     }
     .placement-label {
-      font-family: Aptos, 'Segoe UI', sans-serif;
+      font-family: var(--font-sans);
       font-size: 12px;
       font-weight: 800;
       fill: #0f172a;

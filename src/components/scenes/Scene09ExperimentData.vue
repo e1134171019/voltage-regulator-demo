@@ -247,7 +247,7 @@ h2 {
   border-radius: 12px;
   background: rgba(15, 23, 42, 0.06);
   color: #0f172a;
-  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 0.88rem;
 }
 
@@ -310,7 +310,7 @@ h2 {
 
 .digital-text {
   display: block;
-  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 2.2rem;
   color: #10b981;
   text-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
@@ -336,7 +336,7 @@ h2 {
 }
 
 .readout-sub strong {
-  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 1.1rem;
   color: #fff;
 }

@@ -83,8 +83,8 @@
             <path ref="pathCpuMemRef" class="cp purple-cp" :class="{ on: isRec }" d="M 100,130 C 76,196 176,238 243,245" fill="none" stroke="#a855f7"></path>
             <path ref="pathCamMemRef" class="cp pink-cp" :class="{ on: isRec }" d="M 460,130 C 484,196 384,238 317,245" fill="none" stroke="#ff00aa"></path>
             <path ref="pathArchRef" class="cp arch-cp" :class="{ on: isRec }" d="M 100,30 C 100,-2 460,-2 460,30" fill="none" stroke="#00ff88"></path>
-            <text x="280" y="17" class="svg-tag" :opacity="isRec ? 0.9 : 0" fill="#00ff88" font-size="8" text-anchor="middle" font-family="'Courier New',monospace" letter-spacing="1">SIGNAL / CONTROL PATH</text>
-            <text x="280" y="198" class="svg-tag2" :opacity="isRec ? 0.8 : 0" fill="#ff00aa" font-size="7.5" text-anchor="middle" font-family="'Courier New',monospace" letter-spacing="1">POWER DEMAND RISE</text>
+            <text x="280" y="17" class="svg-tag" :opacity="isRec ? 0.9 : 0" fill="#00ff88" font-size="8" text-anchor="middle" letter-spacing="1">SIGNAL / CONTROL PATH</text>
+            <text x="280" y="198" class="svg-tag2" :opacity="isRec ? 0.8 : 0" fill="#ff00aa" font-size="7.5" text-anchor="middle" letter-spacing="1">POWER DEMAND RISE</text>
             <g v-for="p in particles" :key="p.id">
               <circle :cx="p.x" :cy="p.y" :r="p.r * 3.5" :fill="p.color" :opacity="p.opacity * 0.18"></circle>
               <circle :cx="p.x" :cy="p.y" :r="p.r * 1.8" :fill="p.color" :opacity="p.opacity * 0.4"></circle>
@@ -182,7 +182,7 @@
             </g>
             <text x="400" y="26" class="curve-label load-label">LOAD ↑</text>
             <text x="310" y="155" class="curve-label vout-label">VOUT dip → recover</text>
-            <text x="20" y="206" fill="rgba(0,240,255,0.35)" font-size="12" font-family="Courier New">time →</text>
+            <text x="20" y="206" class="curve-label" fill="rgba(0,240,255,0.35)" font-size="12">time →</text>
           </svg>
         </div>
       </section>
@@ -446,7 +446,7 @@ onUnmounted(() => {
   height: auto;
   background: #020812;
   color: #d0e4ff;
-  font-family: 'Courier New', Courier, monospace;
+  font-family: var(--font-mono);
   display: flex;
   flex-direction: column;
   overflow-x: hidden;
@@ -836,7 +836,7 @@ onUnmounted(() => {
 .curve-vout { stroke: #ff00aa; filter: drop-shadow(0 0 7px rgba(255,0,170,0.38)); stroke-dasharray: 540; stroke-dashoffset: 540; }
 .curve-load.active { opacity: 1; animation: drawCurve 4.6s ease forwards; }
 .curve-vout.active { opacity: 1; animation: drawCurve 5.2s ease forwards; }
-.curve-label { font-size: 12px; letter-spacing: 1px; font-family: 'Courier New', monospace; }
+.curve-label { font-size: 12px; letter-spacing: 1px; font-family: var(--font-mono); }
 .load-label { fill: #00f0ff; }
 .vout-label { fill: #ff00aa; }
 .curve-dot { fill: #00f0ff; filter: drop-shadow(0 0 9px rgba(0,240,255,0.92)); }
@@ -850,7 +850,7 @@ onUnmounted(() => {
 .curve-percent-badge text {
   font-size: 11px;
   font-weight: 900;
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-mono);
   letter-spacing: 0.5px;
   dominant-baseline: middle;
   stroke: none;
@@ -870,10 +870,10 @@ onUnmounted(() => {
 .bolt { font-size: 17px; }
 .ftr-sub { font-size: 11px; letter-spacing: 1.5px; color: rgba(0,240,255,0.52); margin-top: 4px; }
 
-.reset-btn { position: fixed; bottom: calc(62px + var(--slide-nav-offset, 0px)); right: 24px; z-index: 100; background: rgba(0,240,255,0.08); border: 1px solid rgba(0,240,255,0.42); border-radius: 18px; color: rgba(0,240,255,0.85); font-family: 'Courier New', monospace; font-size: 11px; letter-spacing: 2px; padding: 8px 16px; cursor: pointer; transition: all 0.3s; }
+.reset-btn { position: fixed; bottom: calc(62px + var(--slide-nav-offset, 0px)); right: 24px; z-index: 100; background: rgba(0,240,255,0.08); border: 1px solid rgba(0,240,255,0.42); border-radius: 18px; color: rgba(0,240,255,0.85); font-family: var(--font-mono); font-size: 11px; letter-spacing: 2px; padding: 8px 16px; cursor: pointer; transition: all 0.3s; }
 .reset-btn:hover { background: rgba(0,240,255,0.16); box-shadow: 0 0 14px rgba(0,240,255,0.4); }
 
-.svg-tag, .svg-tag2 { transition: opacity 0.8s ease; }
+.svg-tag, .svg-tag2 { font-family: var(--font-mono); transition: opacity 0.8s ease; }
 
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 @keyframes scan-down { 0% { top: 0; opacity: 0.9; } 100% { top: 100%; opacity: 0.4; } }

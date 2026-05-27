@@ -1,7 +1,7 @@
 <template>
   <div class="presentation-container" :class="{ immersive: isImmersiveSlide }">
     <!-- Main Workspace -->
-    <main class="presentation-workspace" :class="{ immersive: isImmersiveSlide, 'nav-only-titles': isNavOnlyTitleSlide }">
+    <main class="presentation-workspace" :class="{ immersive: isImmersiveSlide }">
       <!-- Transition wrapper for slides -->
       <transition name="slide-fade" mode="out-in">
         <component :is="activeSlideComponent" :key="currentSlide" />
@@ -101,10 +101,6 @@ const isImmersiveSlide = computed(() => {
   return Boolean(activeSlide.value.immersive)
 })
 
-const isNavOnlyTitleSlide = computed(() => {
-  return currentSlide.value >= 2
-})
-
 function nextSlide() {
   if (currentSlide.value < totalSlides - 1) {
     currentSlide.value++
@@ -192,16 +188,6 @@ onUnmounted(() => {
   min-height: calc(100dvh - 112px);
   min-height: calc(100vh - 112px);
   height: auto;
-}
-
-.presentation-workspace.nav-only-titles :deep(.slide-intro),
-.presentation-workspace.nav-only-titles :deep(.card-head) {
-  display: none;
-}
-
-.presentation-workspace.nav-only-titles :deep(.theory-body),
-.presentation-workspace.nav-only-titles :deep(.summary-body) {
-  margin-top: 0 !important;
 }
 
 /* Footer Controls */

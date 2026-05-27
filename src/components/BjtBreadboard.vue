@@ -688,7 +688,7 @@ onBeforeUnmount(() => {
 .terminal-label,
 .pin-label,
 .node-readout {
-  font-family: Inter, 'Segoe UI', 'Noto Sans TC', sans-serif;
+  font-family: var(--font-sans);
 }
 
 .rail-labels text {

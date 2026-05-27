@@ -7,7 +7,7 @@ export class WaveformPlotter {
     this.options = {
       gridColor: 'rgba(30, 41, 59, 0.08)',
       textColor: '#475569',
-      fontFamily: 'Inter, sans-serif',
+      fontFamily: '"Noto Sans TC", "Segoe UI", system-ui, sans-serif',
       padding: { top: 20, right: 20, bottom: 30, left: 40 },
       ...options,
     };

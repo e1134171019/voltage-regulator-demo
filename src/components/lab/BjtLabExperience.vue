@@ -433,7 +433,7 @@ h1 {
 .topology pre {
   margin: 0;
   color: #334155;
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  font-family: var(--font-mono);
   line-height: 1.55;
   white-space: pre-wrap;
 }

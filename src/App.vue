@@ -20,6 +20,8 @@ import VoltageRegulatorPresentation from './views/VoltageRegulatorPresentation.v
   --nova-cyan: #00f0ff;
   --nova-pink: #ff4fa3;
   --nova-violet: #8b5cf6;
+  --font-sans: 'Noto Sans TC', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'Cascadia Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
 }
 
 :global(*) {
@@ -33,7 +35,7 @@ import VoltageRegulatorPresentation from './views/VoltageRegulatorPresentation.v
 :global(body) {
   margin: 0;
   min-height: 100vh;
-  font-family: Aptos, 'Segoe UI', 'Noto Sans TC', sans-serif;
+  font-family: var(--font-sans);
   background:
     linear-gradient(rgba(0, 240, 255, 0.045) 1px, transparent 1px),
     linear-gradient(90deg, rgba(0, 240, 255, 0.045) 1px, transparent 1px),

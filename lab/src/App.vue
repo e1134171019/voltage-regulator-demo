@@ -174,7 +174,9 @@ const activeModule = computed(() => {
 :global(body) {
   margin: 0;
   min-height: 100vh;
-  font-family: Aptos, 'Segoe UI', 'Noto Sans TC', sans-serif;
+  --font-sans: 'Noto Sans TC', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'Cascadia Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  font-family: var(--font-sans);
   background:
     radial-gradient(circle at top left, rgba(250, 204, 21, 0.18), transparent 26%),
     radial-gradient(circle at top right, rgba(20, 184, 166, 0.16), transparent 28%),
