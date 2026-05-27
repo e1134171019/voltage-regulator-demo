@@ -590,6 +590,13 @@ const COMPONENT_RULES = {
   minimumVisibleCurrent: 0.00002,
 }
 
+const WORKSPACE_MARGIN = {
+  left: 80,
+  right: 80,
+  top: 8,
+  bottom: 72,
+}
+
 const svgMarkupCache = new Map()
 const svgPreviewCache = new Map()
 
@@ -678,8 +685,22 @@ const conductiveGroups = computed(() => {
 
 const boardViewBox = computed(() => parseViewBox(boardPackage.value?.svgText || ''))
 
-const runtimeViewBox = computed(() => {
+const workspaceViewBox = computed(() => {
   const baseViewBox = boardViewBox.value
+  if (!baseViewBox) {
+    return null
+  }
+
+  return {
+    minX: baseViewBox.minX - WORKSPACE_MARGIN.left,
+    minY: baseViewBox.minY - WORKSPACE_MARGIN.top,
+    width: baseViewBox.width + WORKSPACE_MARGIN.left + WORKSPACE_MARGIN.right,
+    height: baseViewBox.height + WORKSPACE_MARGIN.top + WORKSPACE_MARGIN.bottom,
+  }
+})
+
+const runtimeViewBox = computed(() => {
+  const baseViewBox = workspaceViewBox.value || boardViewBox.value
   if (!baseViewBox) {
     return {
       minX: 0,
@@ -705,12 +726,12 @@ const overlayViewBox = computed(() => {
 })
 
 const boardFrameStyle = computed(() => {
-  if (!boardViewBox.value) {
+  if (!workspaceViewBox.value) {
     return {}
   }
 
   return {
-    aspectRatio: `${boardViewBox.value.width} / ${boardViewBox.value.height}`,
+    aspectRatio: `${workspaceViewBox.value.width} / ${workspaceViewBox.value.height}`,
   }
 })
 
@@ -768,7 +789,8 @@ const placedParts = computed(() => {
         id: instanceId,
         instanceId,
         templateId: record.templateId,
-        holes: record.holes,
+        holes: record.holes || {},
+        freePosition: record.freePosition || null,
         rotation: record.rotation ?? 0,
       }
     })
@@ -818,23 +840,18 @@ const placementPreview = computed(() => {
   }
 
   const targetHole = findNearestHole(hoverBoardPoint.value, holePitch.value * 0.9)
-  if (!targetHole) {
-    return null
-  }
-
   const part = partCatalog.value.find((item) => item.id === pendingPlacementPartId.value)
   if (!part) {
     return null
   }
 
   const rotation = pendingTemplateRotations[part.id] ?? 0
-  const mapping = computePlacementFromAnchor(part, targetHole.name, rotation)
-  if (!mapping) {
-    return null
-  }
-
   const { innerSvg, bounds } = getSvgMarkupInfo(part.package)
-  const targetAnchors = Object.entries(mapping)
+  const mapping = targetHole ? computePlacementFromAnchor(part, targetHole.name, rotation) : null
+  const transform = mapping
+    ? buildPartTransform({ ...part, holes: mapping, rotation }, boardHoleLookup.value)
+    : buildPartTransform({ ...part, holes: {}, freePosition: hoverBoardPoint.value, rotation }, boardHoleLookup.value)
+  const targetAnchors = Object.entries(mapping || {})
     .map(([connectorId, holeName]) => {
       const connector = part.package.connectors.find((item) => item.id === connectorId)
       const targetHole = boardHoleLookup.value.get(holeName.toUpperCase())
@@ -853,7 +870,7 @@ const placementPreview = computed(() => {
   return {
     innerSvg,
     bounds,
-    transform: buildPartTransform({ ...part, holes: mapping, rotation }, boardHoleLookup.value),
+    transform,
     targetAnchors,
   }
 })
@@ -1769,7 +1786,11 @@ const selectedPartSummary = computed(() => {
     return '元件尺寸固定，不允許縮放。'
   }
 
-  const holes = Object.values(partPlacements[selectedPartId.value].holes || {})
+  const selectedRecord = partPlacements[selectedPartId.value]
+  const holes = Object.values(selectedRecord.holes || {})
+  if (!holes.length && selectedRecord.freePosition) {
+    return '元件目前在麵包板外，尚未接入孔位。'
+  }
   return holes.length ? `腳位：${holes.join(', ')}` : '元件尺寸固定，不允許縮放。'
 })
 
@@ -2192,7 +2213,7 @@ function rotateTargetPart(delta) {
   }
 
   const anchorHoleName = record.holes[baseConnector.id]
-  const mapping = computePlacementFromAnchor(part, anchorHoleName, nextRotation)
+  const mapping = computePlacementFromAnchor(part, anchorHoleName, nextRotation, targetPartId)
   if (mapping) {
     partPlacements[targetPartId] = {
       ...record,
@@ -2350,7 +2371,7 @@ function buildPartTransform(part, holeLookup) {
   }
 
   const holeName = part.holes?.[baseConnector.id]
-  const target = holeName ? holeLookup.get(holeName.toUpperCase())?.anchor : null
+  const target = holeName ? holeLookup.get(holeName.toUpperCase())?.anchor : part.freePosition || null
   if (!target) {
     return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }
   }
@@ -2424,7 +2445,7 @@ function handlePointerMove(event) {
     return
   }
 
-  const pointer = pointerToBoard(event)
+  const pointer = pointerToBoard(event, { allowWorkspace: true })
   if (!pointer) {
     return
   }
@@ -2445,12 +2466,13 @@ function handlePointerUp() {
   const renderedPart = renderedParts.value.find((part) => part.id === dragState.value.partId)
   if (renderedPart) {
     const snapped = snapPartToBoard(renderedPart)
-    if (snapped) {
-      partPlacements[renderedPart.id] = {
-        templateId: renderedPart.templateId,
-        holes: snapped,
-        rotation: renderedPart.rotation,
-      }
+    partPlacements[renderedPart.id] = {
+      templateId: renderedPart.templateId,
+      holes: snapped || {},
+      freePosition: snapped ? null : getDraggedPartFreePosition(renderedPart),
+      rotation: renderedPart.rotation,
+    }
+    if (snapped || partPlacements[renderedPart.id].freePosition) {
       captureState()
     }
   }
@@ -2842,25 +2864,19 @@ function clearHoverPreview() {
 
 function placePendingPart(pointer) {
   const hole = findNearestHole(pointer, holePitch.value * 0.9)
-  if (!hole) {
-    return
-  }
-
   const part = partCatalog.value.find((item) => item.id === pendingPlacementPartId.value)
   if (!part) {
     return
   }
 
   const rotation = pendingTemplateRotations[part.id] ?? 0
-  const mapping = computePlacementFromAnchor(part, hole.name, rotation)
-  if (!mapping) {
-    return
-  }
+  const mapping = hole ? computePlacementFromAnchor(part, hole.name, rotation) : null
 
   const instanceId = `${part.id}-${nextPartInstanceId++}`
   partPlacements[instanceId] = {
     templateId: part.id,
-    holes: mapping,
+    holes: mapping || {},
+    freePosition: mapping ? null : pointer,
     rotation,
   }
   selectedPartId.value = instanceId
@@ -2870,7 +2886,17 @@ function placePendingPart(pointer) {
   captureState()
 }
 
-function computePlacementFromAnchor(part, anchorHoleName, rotation) {
+function getDraggedPartFreePosition(part) {
+  const baseConnector = getBaseConnector(part)
+  if (!baseConnector) {
+    return null
+  }
+
+  const transform = applyDragOffset(part.baseTransform, dragState.value?.dx || 0, dragState.value?.dy || 0)
+  return applyMatrix(transform, baseConnector.anchor)
+}
+
+function computePlacementFromAnchor(part, anchorHoleName, rotation, ignoreOwnerId = '') {
   const anchorHole = boardHoleLookup.value.get(anchorHoleName.toUpperCase())
   const baseConnector = getBaseConnector(part)
   if (!anchorHole || !baseConnector) {
@@ -2903,7 +2929,7 @@ function computePlacementFromAnchor(part, anchorHoleName, rotation) {
       }
 
       const owner = occupiedHoleOwners.value.get(hole.name.toUpperCase())
-      if (owner && owner !== part.id) {
+      if (owner && owner !== ignoreOwnerId) {
         continue
       }
 
@@ -3427,7 +3453,7 @@ function clamp(value, min, max) {
   grid-template-columns: minmax(230px, 280px) minmax(0, 1fr) minmax(170px, 190px);
   gap: 18px;
   align-items: start;
-  min-height: 760px;
+  min-height: 0;
 }
 
 .control-column,
@@ -3580,7 +3606,7 @@ function clamp(value, min, max) {
   position: relative;
   width: 100%;
   max-width: 1100px;
-  min-height: 620px;
+  min-height: 430px;
   border-radius: 30px;
   border: 1px solid rgba(0, 240, 255, 0.16);
   background:
@@ -3601,7 +3627,7 @@ function clamp(value, min, max) {
 .schematic-card,
 .explain-panel {
   width: 100%;
-  min-height: 300px;
+  min-height: 210px;
   justify-self: stretch;
   padding: 16px;
   border-radius: 8px;
@@ -3617,7 +3643,7 @@ function clamp(value, min, max) {
   position: relative;
   z-index: 1;
   width: 100%;
-  height: min(250px, 28vh);
+  height: min(170px, 22vh);
   margin-top: 12px;
   display: block;
 }
