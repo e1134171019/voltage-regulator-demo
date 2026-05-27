@@ -1381,7 +1381,7 @@ function selectWire(wireId) {
 }
 
 function getSelectedWireColor() {
-  if (!selectedWireId.value) return ''
+  if (!selectedWireId.value) return '#2563eb'
   const wire = wires.value.find((w) => w.id === selectedWireId.value)
   return wire?.color || '#2563eb'
 }
@@ -1764,6 +1764,7 @@ function handleBoardPointerDown(event) {
 
   const hitResult = hitTestAtPointer(pointer)
   if (hitResult.type === 'connector') {
+    captureBoardPointer(event)
     startWireFromConnector(hitResult.connector)
     return
   }
@@ -1827,10 +1828,11 @@ function handleBoardPointerUp(event) {
   const validation = validateWireConnection(startConnector, releaseConnector)
 
   if (validation.state === 'valid' && startHole && endHole) {
+    const wireId = `user-${nextWireId++}`
     wires.value = [
       ...wires.value,
       {
-        id: `user-${nextWireId++}`,
+        id: wireId,
         from: startHole.name,
         to: endHole.name,
         color: getSelectedWireColor(),
@@ -1838,9 +1840,12 @@ function handleBoardPointerUp(event) {
         via: buildWireViaPoint(startHole.anchor, endHole.anchor, currentPoint),
       },
     ]
+    selectedWireId.value = wireId
+    selectedPartId.value = ''
     captureState()
   }
 
+  releaseBoardPointer(event)
   pendingWireStart.value = ''
   wireDragState.value = null
 }
@@ -2046,6 +2051,20 @@ function validateWireConnection(startConnector, endConnector) {
   }
 
   return { state: 'valid', label: 'CONNECT' }
+}
+
+function captureBoardPointer(event) {
+  const target = event.currentTarget
+  if (target?.setPointerCapture) {
+    target.setPointerCapture(event.pointerId)
+  }
+}
+
+function releaseBoardPointer(event) {
+  const target = event.currentTarget
+  if (target?.hasPointerCapture?.(event.pointerId)) {
+    target.releasePointerCapture(event.pointerId)
+  }
 }
 
 function pointInTransformedBounds(point, bounds, transform) {
