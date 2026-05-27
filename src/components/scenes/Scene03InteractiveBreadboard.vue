@@ -246,71 +246,87 @@
 
           <svg class="schematic-svg" viewBox="0 0 360 280" role="img" aria-label="UA741 與 2SC1384 定電壓電路圖">
             <g class="schematic-lines">
-              <line x1="34" y1="36" x2="326" y2="36" />
-              <line x1="34" y1="236" x2="326" y2="236" />
-              <line x1="78" y1="36" x2="78" y2="76" />
-              <line x1="78" y1="122" x2="78" y2="236" />
-              <line x1="78" y1="118" x2="139" y2="118" />
-              <line x1="139" y1="118" x2="139" y2="124" />
-              <line x1="138" y1="166" x2="78" y2="166" />
-              <line x1="139" y1="166" x2="139" y2="198" />
-              <line x1="210" y1="145" x2="246" y2="145" />
-              <line x1="274" y1="78" x2="274" y2="112" />
-              <line x1="274" y1="178" x2="274" y2="198" />
-              <line x1="274" y1="198" x2="326" y2="198" />
-              <line x1="274" y1="198" x2="274" y2="236" />
-              <line x1="219" y1="36" x2="219" y2="92" />
-              <line x1="219" y1="198" x2="219" y2="236" />
-              <line x1="139" y1="36" x2="139" y2="102" />
-              <line x1="139" y1="188" x2="139" y2="236" />
+              <line x1="28" y1="34" x2="332" y2="34" />
+              <line x1="28" y1="238" x2="332" y2="238" />
+
+              <line x1="78" y1="34" x2="78" y2="74" />
+              <line x1="78" y1="128" x2="78" y2="238" />
+              <line x1="78" y1="118" x2="132" y2="118" />
+
+              <line x1="132" y1="90" x2="132" y2="34" />
+              <line x1="132" y1="146" x2="132" y2="186" />
+              <line x1="132" y1="186" x2="120" y2="186" />
+              <line x1="120" y1="186" x2="120" y2="182" />
+              <line x1="132" y1="182" x2="250" y2="182" />
+              <line x1="132" y1="210" x2="132" y2="238" />
+
+              <line x1="204" y1="118" x2="236" y2="118" />
+              <line x1="270" y1="34" x2="270" y2="88" />
+              <line x1="270" y1="148" x2="270" y2="182" />
+              <line x1="270" y1="182" x2="312" y2="182" />
+
+              <line x1="228" y1="182" x2="228" y2="238" />
+              <line x1="286" y1="182" x2="286" y2="238" />
+
+              <line x1="312" y1="34" x2="312" y2="182" />
             </g>
 
             <g class="schematic-nodes">
               <circle cx="78" cy="118" r="3.5" />
-              <circle cx="139" cy="36" r="3.5" />
-              <circle cx="139" cy="236" r="3.5" />
-              <circle cx="274" cy="198" r="3.5" />
-              <circle cx="326" cy="198" r="3.5" />
+              <circle cx="132" cy="34" r="3.5" />
+              <circle cx="132" cy="182" r="3.5" />
+              <circle cx="132" cy="238" r="3.5" />
+              <circle cx="270" cy="182" r="3.5" />
+              <circle cx="312" cy="182" r="3.5" />
             </g>
 
             <g class="schematic-part">
-              <path class="resistor" d="M78 76 l-8 7 l16 7 l-16 7 l16 7 l-16 7 l8 7" />
-              <text x="48" y="99">1k</text>
+              <path class="resistor" d="M78 74 l-8 7 l16 7 l-16 7 l16 7 l-16 7 l8 7" />
+              <text x="46" y="97">1k</text>
 
-              <path class="diode" d="M64 166 h28 M67 155 l11 20 l11 -20 Z M92 151 v30" />
-              <text x="40" y="154">ZD</text>
-              <text x="36" y="169">6.2V</text>
+              <path class="diode" d="M64 182 h28 M67 170 l11 20 l11 -20 Z M92 166 v32" />
+              <text x="32" y="170">ZD</text>
+              <text x="26" y="185">6.2V</text>
 
-              <path class="opamp" d="M139 102 L139 188 L210 145 Z" />
-              <text x="157" y="150">UA741</text>
-              <text x="129" y="121">3 +</text>
-              <text x="129" y="169">2 -</text>
-              <text x="215" y="140">6</text>
-              <text x="145" y="54">7</text>
-              <text x="145" y="229">4</text>
+              <path class="opamp" d="M132 90 L132 210 L204 150 Z" />
+              <text x="154" y="154">UA741</text>
+              <text x="120" y="120">3</text>
+              <text x="142" y="124">+</text>
+              <text x="120" y="186">2</text>
+              <text x="142" y="190">−</text>
+              <text x="208" y="116">6</text>
+              <text x="138" y="52">7</text>
+              <text x="138" y="232">4</text>
 
-              <circle class="transistor" cx="274" cy="145" r="32" />
-              <line x1="246" y1="145" x2="264" y2="145" />
-              <line x1="264" y1="120" x2="264" y2="170" />
-              <line x1="264" y1="126" x2="274" y2="112" />
-              <line x1="264" y1="164" x2="278" y2="178" />
-              <path class="arrow" d="M271 173 l9 5 l-5 -9" />
-              <text x="247" y="93">2SC1384</text>
-              <text x="283" y="113">C</text>
-              <text x="246" y="136">B</text>
-              <text x="283" y="180">E</text>
+              <circle class="transistor" cx="270" cy="118" r="30" />
+              <line x1="236" y1="118" x2="258" y2="118" />
+              <line x1="258" y1="96" x2="258" y2="140" />
+              <line x1="258" y1="102" x2="270" y2="88" />
+              <line x1="258" y1="134" x2="276" y2="148" />
+              <path class="arrow" d="M268 144 l10 4 l-4 -10" />
+              <text x="248" y="82">2SC1384</text>
+              <text x="278" y="90">C</text>
+              <text x="242" y="111">B</text>
+              <text x="280" y="154">E</text>
 
-              <path class="resistor" d="M219 198 l-7 8 l7 8 l-7 8 l7 8 l-7 8" />
-              <text x="190" y="224">10k</text>
-              <path class="resistor" d="M274 198 l-7 8 l7 8 l-7 8 l7 8 l-7 8" />
-              <text x="287" y="224">RL</text>
+              <path class="resistor" d="M228 182 l-7 8 l7 8 l-7 8 l7 8 l-7 8" />
+              <text x="198" y="224">10k</text>
+
+              <path class="resistor" d="M286 182 l-7 8 l7 8 l-7 8 l7 8 l-7 8" />
+              <text x="296" y="224">RL</text>
+
+              <line x1="312" y1="62" x2="326" y2="62" />
+              <line x1="316" y1="74" x2="326" y2="74" />
+              <line x1="312" y1="206" x2="326" y2="206" />
+              <line x1="316" y1="218" x2="326" y2="218" />
             </g>
 
             <g class="schematic-labels">
-              <text x="302" y="30">+VCC</text>
-              <text x="302" y="254">-VCC</text>
-              <text x="292" y="191">VL / N</text>
-              <text x="90" y="112">Vref</text>
+              <text x="300" y="28">+VCC</text>
+              <text x="300" y="256">-VCC</text>
+              <text x="86" y="110">Vref</text>
+              <text x="278" y="176">VL</text>
+              <text x="318" y="176">N</text>
             </g>
           </svg>
         </div>
@@ -2207,6 +2223,15 @@ function rotateTargetPart(delta) {
   }
 
   const nextRotation = normalizeRotation((record.rotation ?? 0) + delta)
+  if (record.freePosition) {
+    partPlacements[targetPartId] = {
+      ...record,
+      rotation: nextRotation,
+    }
+    captureState()
+    return
+  }
+
   const baseConnector = getBaseConnector(part)
   if (!baseConnector) {
     return
@@ -4332,96 +4357,4 @@ function clamp(value, min, max) {
   margin-top: 8px;
 }
 
-@media (max-width: 1440px) {
-  .runtime-shell {
-    grid-template-columns: minmax(220px, 260px) minmax(0, 1fr) minmax(160px, 180px);
-  }
-}
-
-@media (max-width: 1280px) {
-  .runtime-shell {
-    grid-template-columns: 1fr;
-    min-height: 0;
-    gap: 16px;
-  }
-
-  .board-column {
-    order: 1;
-  }
-
-  .control-column {
-    order: 2;
-  }
-
-  .tool-column {
-    order: 3;
-  }
-
-  .board-frame {
-    max-width: 100%;
-  }
-
-  .explain-panel {
-    width: 100%;
-    justify-self: stretch;
-  }
-
-  .lower-panel-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 720px) {
-  .runtime-shell {
-    gap: 12px;
-  }
-
-  .panel-card {
-    padding: 16px;
-    border-radius: 22px;
-  }
-
-  .board-frame {
-    min-height: 0;
-    border-radius: 24px;
-  }
-
-  .meter-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .explain-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .schematic-svg {
-    height: 180px;
-  }
-
-}
-
-@media (max-width: 560px) {
-  .runtime-shell {
-    gap: 10px;
-  }
-
-  .board-frame {
-    min-height: 300px;
-  }
-
-  .inspector-actions,
-  .meter-row {
-    grid-template-columns: 1fr;
-  }
-
-  .part-row {
-    grid-template-columns: none;
-    grid-template-rows: 34px 1fr;
-  }
-
-  .part-thumb {
-    width: 34px;
-    height: 30px;
-  }
-}
 </style>

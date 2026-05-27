@@ -80,6 +80,8 @@ export async function parseFzpzPackage(arrayBuffer, meta) {
 
   const typeSet = [...new Set(connectors.map((connector) => connector.type).filter(Boolean))]
   const classification = classifyPackage({ title, moduleId, connectors, filename: meta.filename || meta.path })
+  normalizeSemiconductorSvg(svgDoc, { title, moduleId, filename: meta.filename || meta.path, kind: classification.kind })
+  const normalizedSvgText = new XMLSerializer().serializeToString(svgDoc)
 
   return {
     key: meta.key,
@@ -91,11 +93,51 @@ export async function parseFzpzPackage(arrayBuffer, meta) {
     description,
     moduleId,
     breadboardImageName,
-    svgText,
+    svgText: normalizedSvgText,
     connectors,
     connectorMix: typeSet.join(', ') || 'unknown',
     defaultVisibleCount: connectors.length > 200 ? 60 : connectors.length,
   }
+}
+
+function normalizeSemiconductorSvg(svgDoc, meta) {
+  const text = `${meta.title} ${meta.moduleId} ${meta.filename}`.toLowerCase()
+  const isDarkBodyTarget =
+    meta.kind === 'IC' ||
+    meta.kind === 'Transistor' ||
+    text.includes('ua741') ||
+    text.includes('741') ||
+    text.includes('2sc1384') ||
+    text.includes('npn')
+
+  if (!isDarkBodyTarget) {
+    return
+  }
+
+  const bodyGrad = svgDoc.getElementById('bodyGrad')
+  if (bodyGrad) {
+    const stops = bodyGrad.querySelectorAll('stop')
+    const palette = ['#303030', '#171717', '#050505']
+    stops.forEach((stop, index) => {
+      stop.setAttribute('stop-color', palette[Math.min(index, palette.length - 1)])
+    })
+  }
+
+  const pinGrad = svgDoc.getElementById('pinGrad')
+  if (pinGrad) {
+    const stops = pinGrad.querySelectorAll('stop')
+    const palette = ['#777777', '#eeeeee', '#777777']
+    stops.forEach((stop, index) => {
+      stop.setAttribute('stop-color', palette[Math.min(index, palette.length - 1)])
+    })
+  }
+
+  svgDoc.querySelectorAll('text').forEach((node) => {
+    const current = (node.getAttribute('fill') || '').trim().toLowerCase()
+    if (!current || current === '#000' || current === '#000000') {
+      node.setAttribute('fill', '#f3f4f6')
+    }
+  })
 }
 
 export function resolveZipEntryByViewName(entryNames, basename) {
