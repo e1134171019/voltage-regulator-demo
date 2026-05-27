@@ -1464,11 +1464,7 @@ const primaryDisplayValue = computed(() => {
     return meterReadoutValue.value
   }
 
-  if (selectedMeasurement.value) {
-    return formatVoltage(selectedMeasurement.value.voltage)
-  }
-
-  return '--'
+  return formatVoltage(0)
 })
 
 const meterReadoutStatus = computed(() => {
