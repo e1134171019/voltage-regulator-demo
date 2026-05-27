@@ -40,6 +40,7 @@
             @pointerup="handleBoardPointerUp"
             @pointerleave="clearHoverPreview"
             @click="handleBoardClick"
+            @auxclick.prevent="handleBoardAuxClick"
             @wheel.prevent="handleWheel"
           >
             <g class="wire-layer">
@@ -65,24 +66,6 @@
             </g>
 
             <g class="net-feedback-layer">
-              <circle
-                v-for="hole in sameNetHighlightHoles"
-                :key="`net-${hole.name}`"
-                class="same-net-hole"
-                :cx="hole.anchor.x"
-                :cy="hole.anchor.y"
-                :r="sameNetHighlightRadius"
-              />
-
-              <circle
-                v-for="connector in sameNetPartPinHighlights"
-                :key="`net-pin-${connector.id}`"
-                class="same-net-pin"
-                :cx="connector.position.x"
-                :cy="connector.position.y"
-                :r="sameNetPinRadius"
-              />
-
               <circle
                 v-if="wireDragState?.startConnector"
                 class="connector-focus connector-focus-start"
@@ -152,6 +135,16 @@
                   :height="part.bounds.height"
                   rx="2"
                   ry="2"
+                />
+                <rect
+                  v-if="selectedPartId === part.id && part.bounds"
+                  class="selected-part-outline"
+                  :x="part.bounds.minX"
+                  :y="part.bounds.minY"
+                  :width="part.bounds.width"
+                  :height="part.bounds.height"
+                  rx="3"
+                  ry="3"
                 />
                 <g v-html="part.innerSvg"></g>
               </g>
@@ -335,6 +328,7 @@ const panY = ref(0)
 const isPanning = ref(false)
 const panStartX = ref(0)
 const panStartY = ref(0)
+const panMoved = ref(false)
 
 let nextWireId = 1
 let suppressPaletteClick = false
@@ -903,7 +897,7 @@ const wirePreviewPath = computed(() => {
     return ''
   }
 
-  return routedWirePath(start, end, wireDragState.value.currentPoint)
+  return routedWirePath(start, end, wireDragState.value.bendPoint || wireDragState.value.currentPoint)
 })
 
 const wirePreviewValidation = computed(() => {
@@ -947,14 +941,6 @@ const focusedNetRoot = computed(() => {
   return focusedHole.value ? continuityState.value.findRoot(focusedHole.value.name) : ''
 })
 
-const sameNetHighlightHoles = computed(() => {
-  if (!focusedHole.value || pendingPlacementPartId.value) {
-    return []
-  }
-
-  return continuityState.value.holesFor(focusedHole.value.name)
-})
-
 const sameNetWireIds = computed(() => {
   if (!focusedNetRoot.value) {
     return new Set()
@@ -972,24 +958,7 @@ const sameNetWireIds = computed(() => {
   )
 })
 
-const sameNetPartPinHighlights = computed(() => {
-  if (!focusedNetRoot.value || pendingPlacementPartId.value) {
-    return []
-  }
-
-  return allConnectors.value.filter((connector) => {
-    if (connector.type !== 'partPin') {
-      return false
-    }
-
-    const hole = resolveConnectorToHole(connector)
-    return hole && continuityState.value.findRoot(hole.name) === focusedNetRoot.value
-  })
-})
-
 const connectorFocusRadius = computed(() => Math.max(5.4, holePitch.value * 0.74))
-const sameNetHighlightRadius = computed(() => Math.max(3.4, holePitch.value * 0.44))
-const sameNetPinRadius = computed(() => Math.max(4.4, holePitch.value * 0.56))
 
 const connectorHoverMarker = computed(() => {
   const connector = wireDragState.value?.currentConnector || hoverConnector.value
@@ -1216,6 +1185,7 @@ function resetPlacements() {
   panX.value = 0
   panY.value = 0
   isPanning.value = false
+  panMoved.value = false
 }
 
 function clearWires() {
@@ -1741,15 +1711,7 @@ function handleBoardClick(event) {
 function handleBoardPointerMove(event) {
   // Handle panning
   if (isPanning.value) {
-    const deltaX = event.clientX - panStartX.value
-    const deltaY = event.clientY - panStartY.value
-    
-    // Scale delta by zoom level
-    panX.value -= deltaX / (zoomLevel.value * 50)
-    panY.value -= deltaY / (zoomLevel.value * 50)
-    
-    panStartX.value = event.clientX
-    panStartY.value = event.clientY
+    updateBoardPan(event)
     return
   }
 
@@ -1790,11 +1752,40 @@ function handleWheel(event) {
   zoomLevel.value = newZoom
 }
 
+function handleBoardAuxClick(event) {
+  if (event.button === 1) {
+    event.preventDefault()
+  }
+}
+
+function beginBoardPan(event) {
+  event.preventDefault()
+  captureBoardPointer(event)
+  isPanning.value = true
+  panMoved.value = false
+  panStartX.value = event.clientX
+  panStartY.value = event.clientY
+}
+
+function updateBoardPan(event) {
+  const deltaX = event.clientX - panStartX.value
+  const deltaY = event.clientY - panStartY.value
+
+  if (Math.hypot(deltaX, deltaY) > 2) {
+    panMoved.value = true
+  }
+
+  const boardDelta = clientDeltaToBoardDelta(deltaX, deltaY)
+  panX.value -= boardDelta.x
+  panY.value -= boardDelta.y
+
+  panStartX.value = event.clientX
+  panStartY.value = event.clientY
+}
+
 function handleBoardPointerDown(event) {
   if (event.button === 1 || (event.button === 0 && event.shiftKey)) {
-    isPanning.value = true
-    panStartX.value = event.clientX
-    panStartY.value = event.clientY
+    beginBoardPan(event)
     return
   }
 
@@ -1808,6 +1799,30 @@ function handleBoardPointerDown(event) {
   }
 
   const hitResult = hitTestAtPointer(pointer)
+
+  if (wireDragState.value && hitResult.type === 'connector') {
+    wireDragState.value = {
+      ...wireDragState.value,
+      currentPoint: pointer,
+      currentConnector: hitResult.connector,
+    }
+    captureBoardPointer(event)
+    suppressBoardClick = true
+    return
+  }
+
+  if (wireDragState.value) {
+    wireDragState.value = {
+      ...wireDragState.value,
+      bendPoint: pointer,
+      currentPoint: pointer,
+      currentConnector: null,
+      currentHole: '',
+    }
+    suppressBoardClick = true
+    return
+  }
+
   if (hitResult.type === 'connector') {
     captureBoardPointer(event)
     startWireFromConnector(hitResult.connector)
@@ -1830,6 +1845,7 @@ function handleBoardPointerDown(event) {
 
   selectedPartId.value = ''
   selectedWireId.value = ''
+  beginBoardPan(event)
 }
 
 function startWireFromConnector(connector) {
@@ -1846,13 +1862,19 @@ function startWireFromConnector(connector) {
     startConnector: connector,
     currentPoint: connector.position,
     currentConnector: null,
+    bendPoint: null,
     currentHole: '', // Keep for backward compatibility during transition
   }
 }
 
 function handleBoardPointerUp(event) {
   if (isPanning.value) {
+    if (panMoved.value) {
+      suppressBoardClick = true
+    }
     isPanning.value = false
+    panMoved.value = false
+    releaseBoardPointer(event)
     return
   }
 
@@ -1885,12 +1907,23 @@ function handleBoardPointerUp(event) {
         to: endHole.name,
         color: getSelectedWireColor(),
         width: 3.1,
-        via: buildWireViaPoint(startHole.anchor, endHole.anchor, currentPoint),
+        via: wireDragState.value.bendPoint || buildWireViaPoint(startHole.anchor, endHole.anchor, currentPoint),
       },
     ]
     selectedWireId.value = wireId
     selectedPartId.value = ''
     captureState()
+  } else if (pointer && !releaseConnector) {
+    wireDragState.value = {
+      ...wireDragState.value,
+      bendPoint: currentPoint,
+      currentPoint,
+      currentConnector: null,
+      currentHole: '',
+    }
+    releaseBoardPointer(event)
+    suppressBoardClick = true
+    return
   }
 
   releaseBoardPointer(event)
@@ -2210,6 +2243,29 @@ function pointerToBoard(event) {
   return {
     x: viewBox.minX + localX / scale,
     y: viewBox.minY + localY / scale,
+  }
+}
+
+function clientDeltaToBoardDelta(deltaX, deltaY) {
+  const svg = overlaySvgRef.value
+  const viewBox = runtimeViewBox.value
+  if (!svg || !viewBox) {
+    return { x: 0, y: 0 }
+  }
+
+  const rect = svg.getBoundingClientRect()
+  if (!rect.width || !rect.height) {
+    return { x: 0, y: 0 }
+  }
+
+  const scale = Math.min(rect.width / viewBox.width, rect.height / viewBox.height)
+  if (!scale) {
+    return { x: 0, y: 0 }
+  }
+
+  return {
+    x: deltaX / scale,
+    y: deltaY / scale,
   }
 }
 
@@ -2538,6 +2594,11 @@ function clamp(value, min, max) {
   display: block;
 }
 
+.board-overlay {
+  cursor: grab;
+  touch-action: none;
+}
+
 .board-overlay.placing,
 .board-overlay.wiring {
   cursor: crosshair;
@@ -2570,7 +2631,10 @@ function clamp(value, min, max) {
 }
 
 .runtime-wire.selected {
-  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.48));
+  filter:
+    drop-shadow(0 0 4px rgba(255, 255, 255, 0.82))
+    drop-shadow(0 0 12px rgba(34, 211, 238, 0.72));
+  opacity: 1;
 }
 
 .runtime-wire.sameNet {
@@ -2595,20 +2659,6 @@ function clamp(value, min, max) {
 
 .net-feedback-layer {
   pointer-events: none;
-}
-
-.same-net-hole {
-  fill: rgba(56, 189, 248, 0.2);
-  stroke: rgba(14, 165, 233, 0.78);
-  stroke-width: 0.9px;
-  filter: drop-shadow(0 0 4px rgba(14, 165, 233, 0.38));
-}
-
-.same-net-pin {
-  fill: rgba(56, 189, 248, 0.24);
-  stroke: rgba(125, 211, 252, 0.9);
-  stroke-width: 1.2px;
-  filter: drop-shadow(0 0 5px rgba(14, 165, 233, 0.48));
 }
 
 .connector-focus {
@@ -2688,7 +2738,17 @@ function clamp(value, min, max) {
 }
 
 .part-group.selected {
-  filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.35));
+  filter:
+    drop-shadow(0 0 5px rgba(255, 255, 255, 0.72))
+    drop-shadow(0 0 15px rgba(34, 211, 238, 0.7));
+}
+
+.selected-part-outline {
+  fill: rgba(34, 211, 238, 0.08);
+  stroke: rgba(34, 211, 238, 0.95);
+  stroke-width: 1.8px;
+  pointer-events: none;
+  filter: drop-shadow(0 0 7px rgba(34, 211, 238, 0.8));
 }
 
 .connector-status-layer {
