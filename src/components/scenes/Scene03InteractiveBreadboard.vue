@@ -19,6 +19,38 @@
           <input v-model.number="loadCurrent" type="range" min="0.05" max="0.8" step="0.01" />
         </label>
       </div>
+
+      <div class="panel-card meter-readout-card">
+        <div class="card-head">
+          <span class="badge">DMM</span>
+          <strong>三用電表</strong>
+        </div>
+
+        <div class="meter-mode-buttons">
+          <button
+            class="tool-btn"
+            :class="{ active: meterReadMode === 'voltage' }"
+            :disabled="!activeMeterMeasurement"
+            @click="setMeterReadMode('voltage')"
+          >
+            量電壓
+          </button>
+          <button
+            class="tool-btn"
+            :class="{ active: meterReadMode === 'current' }"
+            :disabled="!activeMeterMeasurement"
+            @click="setMeterReadMode('current')"
+          >
+            量電流
+          </button>
+        </div>
+
+        <div class="meter-readout-screen">
+          <span>{{ meterReadoutStatus }}</span>
+          <strong>{{ meterReadoutValue }}</strong>
+          <small>{{ meterReadoutDetail }}</small>
+        </div>
+      </div>
     </aside>
 
     <div class="board-column">
@@ -204,6 +236,118 @@
           </svg>
         </template>
       </div>
+
+      <div class="lower-panel-grid">
+        <div class="panel-card schematic-card">
+          <div class="card-head">
+            <span class="badge">Circuit</span>
+            <strong>電路圖</strong>
+          </div>
+
+          <svg class="schematic-svg" viewBox="0 0 360 280" role="img" aria-label="UA741 與 2SC1384 定電壓電路圖">
+            <g class="schematic-lines">
+              <line x1="34" y1="36" x2="326" y2="36" />
+              <line x1="34" y1="236" x2="326" y2="236" />
+              <line x1="78" y1="36" x2="78" y2="76" />
+              <line x1="78" y1="122" x2="78" y2="236" />
+              <line x1="78" y1="118" x2="139" y2="118" />
+              <line x1="139" y1="118" x2="139" y2="124" />
+              <line x1="138" y1="166" x2="78" y2="166" />
+              <line x1="139" y1="166" x2="139" y2="198" />
+              <line x1="210" y1="145" x2="246" y2="145" />
+              <line x1="274" y1="78" x2="274" y2="112" />
+              <line x1="274" y1="178" x2="274" y2="198" />
+              <line x1="274" y1="198" x2="326" y2="198" />
+              <line x1="274" y1="198" x2="274" y2="236" />
+              <line x1="219" y1="36" x2="219" y2="92" />
+              <line x1="219" y1="198" x2="219" y2="236" />
+              <line x1="139" y1="36" x2="139" y2="102" />
+              <line x1="139" y1="188" x2="139" y2="236" />
+            </g>
+
+            <g class="schematic-nodes">
+              <circle cx="78" cy="118" r="3.5" />
+              <circle cx="139" cy="36" r="3.5" />
+              <circle cx="139" cy="236" r="3.5" />
+              <circle cx="274" cy="198" r="3.5" />
+              <circle cx="326" cy="198" r="3.5" />
+            </g>
+
+            <g class="schematic-part">
+              <path class="resistor" d="M78 76 l-8 7 l16 7 l-16 7 l16 7 l-16 7 l8 7" />
+              <text x="48" y="99">1k</text>
+
+              <path class="diode" d="M64 166 h28 M67 155 l11 20 l11 -20 Z M92 151 v30" />
+              <text x="40" y="154">ZD</text>
+              <text x="36" y="169">6.2V</text>
+
+              <path class="opamp" d="M139 102 L139 188 L210 145 Z" />
+              <text x="157" y="150">UA741</text>
+              <text x="129" y="121">3 +</text>
+              <text x="129" y="169">2 -</text>
+              <text x="215" y="140">6</text>
+              <text x="145" y="54">7</text>
+              <text x="145" y="229">4</text>
+
+              <circle class="transistor" cx="274" cy="145" r="32" />
+              <line x1="246" y1="145" x2="264" y2="145" />
+              <line x1="264" y1="120" x2="264" y2="170" />
+              <line x1="264" y1="126" x2="274" y2="112" />
+              <line x1="264" y1="164" x2="278" y2="178" />
+              <path class="arrow" d="M271 173 l9 5 l-5 -9" />
+              <text x="247" y="93">2SC1384</text>
+              <text x="283" y="113">C</text>
+              <text x="246" y="136">B</text>
+              <text x="283" y="180">E</text>
+
+              <path class="resistor" d="M219 198 l-7 8 l7 8 l-7 8 l7 8 l-7 8" />
+              <text x="190" y="224">10k</text>
+              <path class="resistor" d="M274 198 l-7 8 l7 8 l-7 8 l7 8 l-7 8" />
+              <text x="287" y="224">RL</text>
+            </g>
+
+            <g class="schematic-labels">
+              <text x="302" y="30">+VCC</text>
+              <text x="302" y="254">-VCC</text>
+              <text x="292" y="191">VL / N</text>
+              <text x="90" y="112">Vref</text>
+            </g>
+          </svg>
+        </div>
+
+        <div class="panel-card explain-panel">
+          <div class="card-head">
+            <span class="badge">Guide</span>
+            <strong>接線說明</strong>
+          </div>
+
+          <div class="explain-grid">
+            <div class="inspector-meta">
+              <span>Mode</span>
+              <strong>{{ inspectorModeLabel }}</strong>
+              <small>{{ inspectorHint }}</small>
+            </div>
+
+            <div class="inspector-meta">
+              <span>Rotation</span>
+              <strong>{{ currentTargetPartId ? `${partStatusRotation(currentTargetPartId)}°` : '--' }}</strong>
+              <small>{{ selectedPartSummary }}</small>
+            </div>
+
+            <div class="inspector-meta">
+              <span>Continuity</span>
+              <strong>{{ continuitySummary.title }}</strong>
+              <small>{{ continuitySummary.detail }}</small>
+            </div>
+
+            <div v-if="componentRuleSummary" class="inspector-meta rule-warning">
+              <span>Rule</span>
+              <strong>{{ componentRuleSummary.title }}</strong>
+              <small>{{ componentRuleSummary.detail }}</small>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <aside class="tool-column">
@@ -222,7 +366,7 @@
             v-for="part in partCatalog"
             :key="part.id"
             class="part-row"
-            :class="{ active: activePalettePartId === part.id, placed: Boolean(partPlacements[part.id]) }"
+            :class="{ active: activePalettePartId === part.id, placed: (partInstanceCounts.get(part.id) || 0) > 0 }"
             :title="`${part.label} - ${part.kind}`"
             @pointerdown.prevent="startPaletteDrag($event, part.id)"
             @click="selectPalettePart(part.id)"
@@ -243,30 +387,6 @@
         <div class="card-head">
           <span class="badge badge-slate">Inspector</span>
           <strong>{{ activeSelectionLabel }}</strong>
-        </div>
-
-        <div class="inspector-meta">
-          <span>Mode</span>
-          <strong>{{ inspectorModeLabel }}</strong>
-          <small>{{ inspectorHint }}</small>
-        </div>
-
-        <div class="inspector-meta">
-          <span>Rotation</span>
-          <strong>{{ currentTargetPartId ? `${partStatusRotation(currentTargetPartId)}°` : '--' }}</strong>
-          <small>{{ selectedPartSummary }}</small>
-        </div>
-
-        <div class="inspector-meta">
-          <span>Continuity</span>
-          <strong>{{ continuitySummary.title }}</strong>
-          <small>{{ continuitySummary.detail }}</small>
-        </div>
-
-        <div v-if="componentRuleSummary" class="inspector-meta rule-warning">
-          <span>Rule</span>
-          <strong>{{ componentRuleSummary.title }}</strong>
-          <small>{{ componentRuleSummary.detail }}</small>
         </div>
 
         <div v-if="selectedWireId" class="inspector-meta">
@@ -354,6 +474,7 @@ const selectedWireId = ref('')
 const pendingPlacementPartId = ref('')
 const vin = ref(12)
 const loadCurrent = ref(0.28)
+const meterReadMode = ref('')
 const wireMode = ref(false)
 const pendingWireStart = ref('')
 const dragState = ref(null)
@@ -370,7 +491,7 @@ const contextMenu = reactive({
   y: 0,
 })
 const partPlacements = reactive({})
-const partRotations = reactive({})
+const pendingTemplateRotations = reactive({})
 const wires = ref([])
 
 // Zoom and pan state
@@ -383,6 +504,7 @@ const panStartY = ref(0)
 const panMoved = ref(false)
 
 let nextWireId = 1
+let nextPartInstanceId = 1
 let suppressPaletteClick = false
 let suppressBoardClick = false
 let connectorClickState = { key: '', count: 0, time: 0 }
@@ -398,9 +520,10 @@ const history = {
 function captureState() {
   const state = {
     partPlacements: JSON.parse(JSON.stringify(partPlacements)),
-    partRotations: JSON.parse(JSON.stringify(partRotations)),
+    pendingTemplateRotations: JSON.parse(JSON.stringify(pendingTemplateRotations)),
     wires: JSON.parse(JSON.stringify(wires.value)),
     nextWireId,
+    nextPartInstanceId,
   }
   
   // 移除未來的狀態（當用戶執行新操作後）
@@ -430,11 +553,12 @@ function restoreState(state) {
   Object.keys(partPlacements).forEach((key) => delete partPlacements[key])
   Object.assign(partPlacements, JSON.parse(JSON.stringify(state.partPlacements)))
   
-  Object.keys(partRotations).forEach((key) => delete partRotations[key])
-  Object.assign(partRotations, JSON.parse(JSON.stringify(state.partRotations)))
+  Object.keys(pendingTemplateRotations).forEach((key) => delete pendingTemplateRotations[key])
+  Object.assign(pendingTemplateRotations, JSON.parse(JSON.stringify(state.pendingTemplateRotations || {})))
   
   wires.value = JSON.parse(JSON.stringify(state.wires))
   nextWireId = state.nextWireId
+  nextPartInstanceId = state.nextPartInstanceId || 1
 }
 
 const wireColorOptions = [
@@ -450,7 +574,8 @@ const wireColorOptions = [
 
 const PART_LAYOUTS = [
   { id: 'ua741', match: 'custom_ua741_labeled_2x_tight', kind: 'IC', label: 'UA741' },
-  { id: 'npn', match: 'custom_npn_to92_cbe_2x_cbe_inside_fixed', kind: 'Transistor', label: 'NPN 2SC1384' },
+  { id: 'npn', match: 'custom_npn_to92_cbe_2x_cbe_inside_fixed', kind: 'Transistor', label: '2SC1384 NPN (ECB)' },
+  { id: 'meter', match: 'custom_voltage_probe_meter_simplified_2pin', kind: 'Instrument', label: '三用電表 V' },
   { id: 'zener', match: 'custom_zener_u_6v2_2x_ultrashort', kind: 'Reference', label: 'ZD 6.2V' },
   { id: 'rz', match: 'custom_resistor_470r_u_2x_ultrashort_center_label', kind: 'Resistor', label: '470R' },
   { id: 'rb', match: 'custom_resistor_1k_u_2x_ultrashort_center_label', kind: 'Resistor', label: '1k' },
@@ -519,13 +644,13 @@ const allConnectors = computed(() => {
 const occupiedHoleOwners = computed(() => {
   const owners = new Map()
 
-  Object.entries(partPlacements).forEach(([partId, mapping]) => {
-    Object.values(mapping || {}).forEach((holeName) => {
+  Object.entries(partPlacements).forEach(([instanceId, record]) => {
+    Object.values(record?.holes || {}).forEach((holeName) => {
       if (!holeName) {
         return
       }
 
-      owners.set(holeName.toUpperCase(), partId)
+      owners.set(holeName.toUpperCase(), instanceId)
     })
   })
 
@@ -612,14 +737,42 @@ const partCatalog = computed(() => {
     .filter((item) => item.package)
 })
 
+const partCatalogLookup = computed(() => {
+  return new Map(partCatalog.value.map((item) => [item.id, item]))
+})
+
+const partInstanceCounts = computed(() => {
+  const counts = new Map()
+
+  Object.values(partPlacements).forEach((record) => {
+    if (!record?.templateId) {
+      return
+    }
+
+    counts.set(record.templateId, (counts.get(record.templateId) || 0) + 1)
+  })
+
+  return counts
+})
+
 const placedParts = computed(() => {
-  return partCatalog.value
-    .filter((item) => Boolean(partPlacements[item.id]))
-    .map((item) => ({
-      ...item,
-      holes: partPlacements[item.id],
-      rotation: partRotations[item.id] ?? 0,
-    }))
+  return Object.entries(partPlacements)
+    .map(([instanceId, record]) => {
+      const template = partCatalogLookup.value.get(record.templateId)
+      if (!template) {
+        return null
+      }
+
+      return {
+        ...template,
+        id: instanceId,
+        instanceId,
+        templateId: record.templateId,
+        holes: record.holes,
+        rotation: record.rotation ?? 0,
+      }
+    })
+    .filter(Boolean)
 })
 
 const renderedParts = computed(() => {
@@ -674,7 +827,7 @@ const placementPreview = computed(() => {
     return null
   }
 
-  const rotation = partRotations[part.id] ?? 0
+  const rotation = pendingTemplateRotations[part.id] ?? 0
   const mapping = computePlacementFromAnchor(part, targetHole.name, rotation)
   if (!mapping) {
     return null
@@ -710,7 +863,12 @@ const currentTargetPartId = computed(() => {
 })
 
 const activePalettePartId = computed(() => {
-  return pendingPlacementPartId.value || selectedPartId.value || ''
+  if (pendingPlacementPartId.value) {
+    return pendingPlacementPartId.value
+  }
+
+  const selectedRecord = partPlacements[selectedPartId.value]
+  return selectedRecord?.templateId || ''
 })
 
 const paletteDragPart = computed(() => {
@@ -863,13 +1021,142 @@ const boardNodes = computed(() => {
   return nodes
     .map((node) => ({
       ...node,
+      focusHole: node.hole,
       anchor: boardHoleLookup.value.get(node.hole.toUpperCase())?.anchor || null,
     }))
     .filter((node) => node.anchor)
 })
 
+function getHoleVoltage(holeName) {
+  if (!holeName) {
+    return null
+  }
+
+  const root = continuityState.value.findRoot(holeName)
+  return root ? nodeVoltageByRoot.value.get(root)?.voltage ?? null : null
+}
+
+function getHoleElectricalState(holeName) {
+  if (!holeName) {
+    return null
+  }
+
+  const root = continuityState.value.findRoot(holeName)
+  if (!root) {
+    return null
+  }
+
+  const active = componentBehaviorModel.value.activeRoots.get(root)
+  const known = componentBehaviorModel.value.knownVoltages.get(root)
+  const seeded = nodeVoltageByRoot.value.get(root)
+
+  return {
+    root,
+    voltage: active?.voltage ?? known?.voltage ?? seeded?.voltage ?? null,
+    current: active?.current ?? known?.current ?? seeded?.current ?? 0,
+  }
+}
+
+function getMeterConnector(partTemplate, pattern, fallbackIndex) {
+  const connectors = partTemplate?.package?.connectors || []
+  return connectors.find((connector) => pattern.test(connector.name || '')) || connectors[fallbackIndex] || null
+}
+
+function getMeterProbeState(instanceId) {
+  const record = partPlacements[instanceId]
+  if (record?.templateId !== 'meter') {
+    return null
+  }
+
+  const partTemplate = partCatalogLookup.value.get('meter')
+  const blackProbe = getMeterConnector(partTemplate, /black|com|negative|low side/i, 0)
+  const redProbe = getMeterConnector(partTemplate, /red|positive|voltage|high side/i, 1)
+  const blackHole = blackProbe ? record.holes?.[blackProbe.id] || '' : ''
+  const redHole = redProbe ? record.holes?.[redProbe.id] || '' : ''
+  if (!blackHole || !redHole) {
+    return null
+  }
+
+  const blackState = getHoleElectricalState(blackHole)
+  const redState = getHoleElectricalState(redHole)
+  const blackVoltage = blackState?.voltage ?? getHoleVoltage(blackHole)
+  const redVoltage = redState?.voltage ?? getHoleVoltage(redHole)
+  const voltage = redVoltage != null && blackVoltage != null ? redVoltage - blackVoltage : 0
+  const current = Math.max(Math.abs(redState?.current || 0), Math.abs(blackState?.current || 0))
+
+  return {
+    instanceId,
+    id: `meter-${instanceId}`,
+    label: 'DMM V',
+    shortLabel: 'DMM',
+    hole: `${redHole || '--'} / ${blackHole || '--'}`,
+    focusHole: redHole || blackHole || '',
+    voltage,
+    current,
+    power: 0,
+    color: '#a3e635',
+  }
+}
+
+const activeMeterMeasurement = computed(() => {
+  if (selectedPartId.value) {
+    const selectedMeter = getMeterProbeState(selectedPartId.value)
+    if (selectedMeter) {
+      return selectedMeter
+    }
+  }
+
+  for (const instanceId of Object.keys(partPlacements)) {
+    const meter = getMeterProbeState(instanceId)
+    if (meter) {
+      return meter
+    }
+  }
+
+  return null
+})
+
 const selectedMeasurement = computed(() => {
+  const meterMeasurement = selectedPartId.value ? getMeterProbeState(selectedPartId.value) : null
+  if (meterMeasurement) {
+    return meterMeasurement
+  }
+
   return boardNodes.value.find((node) => node.id === selectedNodeId.value) || boardNodes.value[0] || null
+})
+
+const meterReadoutStatus = computed(() => {
+  if (!activeMeterMeasurement.value) {
+    return '尚未接上三用電表'
+  }
+
+  if (!meterReadMode.value) {
+    return '選擇量測模式'
+  }
+
+  return meterReadMode.value === 'voltage' ? 'Voltage' : 'Current'
+})
+
+const meterReadoutValue = computed(() => {
+  const meter = activeMeterMeasurement.value
+  if (!meter || !meterReadMode.value) {
+    return '--'
+  }
+
+  return meterReadMode.value === 'voltage' ? formatVoltage(meter.voltage) : formatCurrent(meter.current)
+})
+
+const meterReadoutDetail = computed(() => {
+  const meter = activeMeterMeasurement.value
+  if (!meter) {
+    return '把三用電表從元件窗口拖到麵包板，讓紅黑探針各自落在孔位上。'
+  }
+
+  if (!meterReadMode.value) {
+    return `${meter.hole} 已接上。`
+  }
+
+  return meterReadMode.value === 'voltage' ? `紅棒 - 黑棒：${meter.hole}` : `讀取目前導通支路：${meter.hole}`
 })
 
 const continuityState = computed(() => {
@@ -907,7 +1194,7 @@ const continuityState = computed(() => {
 })
 
 const continuitySummary = computed(() => {
-  const focusHole = resolveConnectorToHole(wireDragState.value?.startConnector)?.name || selectedMeasurement.value?.hole || ''
+  const focusHole = resolveConnectorToHole(wireDragState.value?.startConnector)?.name || selectedMeasurement.value?.focusHole || selectedMeasurement.value?.hole || ''
   if (!focusHole) {
     return {
       title: '--',
@@ -1006,6 +1293,7 @@ const componentBehaviorModel = computed(() => {
   const ua741Parts = []
 
   placedParts.value.forEach((part) => {
+    const partTypeId = part.templateId || part.id
     const pins = getPartPinRootMap(part)
 
     if (part.kind === 'Resistor') {
@@ -1022,7 +1310,7 @@ const componentBehaviorModel = computed(() => {
       return
     }
 
-    if (part.id === 'zener') {
+    if (partTypeId === 'zener') {
       zenerParts.push({
         id: `zener-${part.id}`,
         partId: part.id,
@@ -1032,7 +1320,7 @@ const componentBehaviorModel = computed(() => {
       return
     }
 
-    if (part.id === 'npn') {
+    if (partTypeId === 'npn') {
       npnParts.push({
         id: `npn-${part.id}`,
         partId: part.id,
@@ -1043,7 +1331,7 @@ const componentBehaviorModel = computed(() => {
       return
     }
 
-    if (part.id === 'ua741') {
+    if (partTypeId === 'ua741') {
       ua741Parts.push({
         id: `ua741-${part.id}`,
         partId: part.id,
@@ -1412,7 +1700,8 @@ const activeSelectionLabel = computed(() => {
   }
 
   if (selectedPartId.value) {
-    const part = partCatalog.value.find((item) => item.id === selectedPartId.value)
+    const record = partPlacements[selectedPartId.value]
+    const part = record ? partCatalogLookup.value.get(record.templateId) : null
     return part ? `已選擇 ${part.label}` : '已選擇元件'
   }
 
@@ -1480,7 +1769,7 @@ const selectedPartSummary = computed(() => {
     return '元件尺寸固定，不允許縮放。'
   }
 
-  const holes = Object.values(partPlacements[selectedPartId.value])
+  const holes = Object.values(partPlacements[selectedPartId.value].holes || {})
   return holes.length ? `腳位：${holes.join(', ')}` : '元件尺寸固定，不允許縮放。'
 })
 
@@ -1573,9 +1862,12 @@ function handleKeyDown(event) {
 }
 
 function resetPlacements() {
+  Object.keys(partPlacements).forEach((key) => {
+    delete partPlacements[key]
+  })
+
   PART_LAYOUTS.forEach((layout) => {
-    delete partPlacements[layout.id]
-    partRotations[layout.id] = 0
+    pendingTemplateRotations[layout.id] = 0
   })
 
   selectedPartId.value = ''
@@ -1589,6 +1881,7 @@ function resetPlacements() {
   wireMode.value = false
   wires.value = []
   nextWireId = 1
+  nextPartInstanceId = 1
   
   // Reset history
   history.stack = []
@@ -1640,7 +1933,7 @@ function startPaletteDrag(event, partId) {
     return
   }
 
-  if (loadingAssets.value || partPlacements[partId]) {
+  if (loadingAssets.value) {
     return
   }
 
@@ -1711,24 +2004,13 @@ function selectPalettePart(partId) {
   selectedWireId.value = ''
   wireMode.value = false
 
-  if (partPlacements[partId]) {
-    selectedPartId.value = partId
-    pendingPlacementPartId.value = ''
-    return
-  }
-
   pendingPlacementPartId.value = partId
   selectedPartId.value = ''
 }
 
 function openPaletteContextMenu(event, partId) {
-  if (partPlacements[partId]) {
-    selectedPartId.value = partId
-    pendingPlacementPartId.value = ''
-  } else {
-    pendingPlacementPartId.value = partId
-    selectedPartId.value = ''
-  }
+  pendingPlacementPartId.value = partId
+  selectedPartId.value = ''
 
   selectedWireId.value = ''
   openContextMenu(event, 'part', partId)
@@ -1789,7 +2071,7 @@ function closeContextMenu() {
 }
 
 function rotateContextPart(delta) {
-  if (contextMenu.targetId && !partPlacements[contextMenu.targetId]) {
+  if (contextMenu.targetId && !partPlacements[contextMenu.targetId] && partCatalogLookup.value.has(contextMenu.targetId)) {
     pendingPlacementPartId.value = contextMenu.targetId
     selectedPartId.value = ''
   }
@@ -1850,19 +2132,35 @@ function clientPointToRuntimeShell(event) {
 }
 
 function partStatusLabel(partId) {
+  const placedCount = partInstanceCounts.value.get(partId) || 0
+
   if (pendingPlacementPartId.value === partId) {
     return `待放置 · ${partStatusRotation(partId)}°`
   }
 
-  if (partPlacements[partId]) {
-    return `已放置 · ${partStatusRotation(partId)}°`
+  if (selectedPartId.value) {
+    const selectedRecord = partPlacements[selectedPartId.value]
+    if (selectedRecord?.templateId === partId) {
+      return `已選取 x${placedCount} · ${partStatusRotation(partId)}°`
+    }
+  }
+
+  if (placedCount > 0) {
+    return `已放置 x${placedCount} · 預設 ${partStatusRotation(partId)}°`
   }
 
   return `未放置 · ${partStatusRotation(partId)}°`
 }
 
 function partStatusRotation(partId) {
-  return normalizeRotation(partRotations[partId] ?? 0)
+  if (selectedPartId.value) {
+    const selectedRecord = partPlacements[selectedPartId.value]
+    if (selectedRecord?.templateId === partId) {
+      return normalizeRotation(selectedRecord.rotation ?? 0)
+    }
+  }
+
+  return normalizeRotation(pendingTemplateRotations[partId] ?? 0)
 }
 
 function rotateTargetPart(delta) {
@@ -1871,27 +2169,36 @@ function rotateTargetPart(delta) {
     return
   }
 
-  const nextRotation = normalizeRotation((partRotations[targetPartId] ?? 0) + delta)
-  partRotations[targetPartId] = nextRotation
-
-  if (!partPlacements[targetPartId]) {
+  if (pendingPlacementPartId.value) {
+    const templateId = pendingPlacementPartId.value
+    pendingTemplateRotations[templateId] = normalizeRotation((pendingTemplateRotations[templateId] ?? 0) + delta)
     return
   }
 
-  const part = partCatalog.value.find((item) => item.id === targetPartId)
+  const record = partPlacements[targetPartId]
+  if (!record) {
+    return
+  }
+
+  const part = partCatalogLookup.value.get(record.templateId)
   if (!part) {
     return
   }
 
+  const nextRotation = normalizeRotation((record.rotation ?? 0) + delta)
   const baseConnector = getBaseConnector(part)
   if (!baseConnector) {
     return
   }
 
-  const anchorHoleName = partPlacements[targetPartId][baseConnector.id]
+  const anchorHoleName = record.holes[baseConnector.id]
   const mapping = computePlacementFromAnchor(part, anchorHoleName, nextRotation)
   if (mapping) {
-    partPlacements[targetPartId] = mapping
+    partPlacements[targetPartId] = {
+      ...record,
+      rotation: nextRotation,
+      holes: mapping,
+    }
     captureState()
   }
 }
@@ -1946,7 +2253,7 @@ function removeSelectedPart() {
 }
 
 function getPartConnectedHoleNames(partId) {
-  const mapping = partPlacements[partId] || {}
+  const mapping = partPlacements[partId]?.holes || {}
   return new Set(Object.values(mapping).filter(Boolean).map((holeName) => holeName.toUpperCase()))
 }
 
@@ -2139,7 +2446,11 @@ function handlePointerUp() {
   if (renderedPart) {
     const snapped = snapPartToBoard(renderedPart)
     if (snapped) {
-      partPlacements[renderedPart.id] = snapped
+      partPlacements[renderedPart.id] = {
+        templateId: renderedPart.templateId,
+        holes: snapped,
+        rotation: renderedPart.rotation,
+      }
       captureState()
     }
   }
@@ -2540,14 +2851,19 @@ function placePendingPart(pointer) {
     return
   }
 
-  const rotation = partRotations[part.id] ?? 0
+  const rotation = pendingTemplateRotations[part.id] ?? 0
   const mapping = computePlacementFromAnchor(part, hole.name, rotation)
   if (!mapping) {
     return
   }
 
-  partPlacements[part.id] = mapping
-  selectedPartId.value = part.id
+  const instanceId = `${part.id}-${nextPartInstanceId++}`
+  partPlacements[instanceId] = {
+    templateId: part.id,
+    holes: mapping,
+    rotation,
+  }
+  selectedPartId.value = instanceId
   pendingPlacementPartId.value = ''
   hoverBoardPoint.value = null
   
@@ -3182,6 +3498,13 @@ function clamp(value, min, max) {
   gap: 14px;
 }
 
+.meter-readout-card {
+  min-height: 270px;
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
 .control-field {
   position: relative;
   z-index: 1;
@@ -3202,10 +3525,55 @@ function clamp(value, min, max) {
   accent-color: #00f0ff;
 }
 
+.meter-mode-buttons {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.meter-readout-screen {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  min-height: 145px;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 240, 255, 0.18);
+  background:
+    linear-gradient(180deg, rgba(2, 8, 18, 0.86), rgba(4, 16, 40, 0.88)),
+    radial-gradient(circle at 50% 20%, rgba(163, 230, 53, 0.13), transparent 42%);
+  box-shadow: inset 0 0 22px rgba(0, 240, 255, 0.08);
+}
+
+.meter-readout-screen span {
+  color: #8dd9ff;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.meter-readout-screen strong {
+  align-self: center;
+  color: #bbf7d0;
+  font-family: var(--font-mono);
+  font-size: 1.7rem;
+  line-height: 1;
+  text-shadow: 0 0 14px rgba(52, 211, 153, 0.34);
+}
+
+.meter-readout-screen small {
+  align-self: end;
+  color: #9eb5c8;
+  line-height: 1.5;
+}
+
 .board-column {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  gap: 18px;
+  align-items: start;
+  justify-items: center;
 }
 
 .board-frame {
@@ -3220,6 +3588,88 @@ function clamp(value, min, max) {
     linear-gradient(180deg, rgba(2, 8, 18, 0.96), rgba(7, 17, 42, 0.92));
   box-shadow: inset 0 0 0 1px rgba(255, 79, 163, 0.06), 0 24px 60px rgba(1, 8, 22, 0.34);
   overflow: hidden;
+}
+
+.lower-panel-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(420px, 1fr) minmax(360px, 0.9fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.schematic-card,
+.explain-panel {
+  width: 100%;
+  min-height: 300px;
+  justify-self: stretch;
+  padding: 16px;
+  border-radius: 8px;
+}
+
+.schematic-card .card-head,
+.explain-panel .card-head {
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.schematic-svg {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: min(250px, 28vh);
+  margin-top: 12px;
+  display: block;
+}
+
+.schematic-lines line,
+.schematic-part line {
+  stroke: rgba(226, 242, 255, 0.88);
+  stroke-width: 2.8;
+  stroke-linecap: round;
+}
+
+.schematic-nodes circle {
+  fill: #e7fbff;
+  filter: drop-shadow(0 0 5px rgba(0, 240, 255, 0.62));
+}
+
+.schematic-part text,
+.schematic-labels text {
+  fill: #dff8ff;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.schematic-part .resistor,
+.schematic-part .diode,
+.schematic-part .opamp,
+.schematic-part .transistor {
+  fill: rgba(4, 16, 40, 0.72);
+  stroke: rgba(226, 242, 255, 0.9);
+  stroke-width: 2.6;
+  stroke-linejoin: round;
+}
+
+.schematic-part .arrow {
+  fill: rgba(226, 242, 255, 0.9);
+  stroke: rgba(226, 242, 255, 0.9);
+  stroke-width: 1.4;
+}
+
+.schematic-labels text {
+  fill: #7dd3fc;
+  font-size: 13px;
+}
+
+.explain-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 18px;
+  margin-top: 14px;
 }
 
 .board-frame::before {
@@ -3875,6 +4325,15 @@ function clamp(value, min, max) {
   .board-frame {
     max-width: 100%;
   }
+
+  .explain-panel {
+    width: 100%;
+    justify-self: stretch;
+  }
+
+  .lower-panel-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 720px) {
@@ -3894,6 +4353,14 @@ function clamp(value, min, max) {
 
   .meter-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .explain-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .schematic-svg {
+    height: 230px;
   }
 
 }
