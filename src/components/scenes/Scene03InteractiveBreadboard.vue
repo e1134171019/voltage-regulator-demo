@@ -246,56 +246,56 @@
 
           <svg class="schematic-svg" viewBox="0 0 360 280" role="img" aria-label="UA741 與 2SC1384 定電壓電路圖">
             <g class="schematic-lines">
-              <line x1="28" y1="34" x2="332" y2="34" />
-              <line x1="28" y1="238" x2="332" y2="238" />
+              <line x1="28" y1="34" x2="334" y2="34" />
+              <line x1="28" y1="238" x2="334" y2="238" />
 
-              <line x1="78" y1="34" x2="78" y2="74" />
-              <line x1="78" y1="128" x2="78" y2="238" />
-              <line x1="78" y1="118" x2="132" y2="118" />
+              <line x1="82" y1="34" x2="82" y2="72" />
+              <line x1="82" y1="130" x2="82" y2="238" />
+              <line x1="82" y1="118" x2="132" y2="118" />
 
-              <line x1="132" y1="90" x2="132" y2="34" />
-              <line x1="132" y1="146" x2="132" y2="186" />
-              <line x1="132" y1="186" x2="120" y2="186" />
-              <line x1="120" y1="186" x2="120" y2="182" />
-              <line x1="132" y1="182" x2="250" y2="182" />
-              <line x1="132" y1="210" x2="132" y2="238" />
+              <line x1="132" y1="94" x2="132" y2="34" />
+              <line x1="132" y1="206" x2="132" y2="238" />
+
+              <line x1="132" y1="182" x2="306" y2="182" />
+              <line x1="122" y1="182" x2="132" y2="182" />
+              <line x1="122" y1="182" x2="122" y2="172" />
 
               <line x1="204" y1="118" x2="236" y2="118" />
-              <line x1="270" y1="34" x2="270" y2="88" />
-              <line x1="270" y1="148" x2="270" y2="182" />
-              <line x1="270" y1="182" x2="312" y2="182" />
 
-              <line x1="228" y1="182" x2="228" y2="238" />
+              <line x1="270" y1="34" x2="270" y2="86" />
+              <line x1="270" y1="150" x2="270" y2="182" />
+
+              <line x1="226" y1="182" x2="226" y2="238" />
               <line x1="286" y1="182" x2="286" y2="238" />
 
-              <line x1="312" y1="34" x2="312" y2="182" />
+              <line x1="306" y1="34" x2="306" y2="238" />
             </g>
 
             <g class="schematic-nodes">
-              <circle cx="78" cy="118" r="3.5" />
+              <circle cx="82" cy="118" r="3.5" />
               <circle cx="132" cy="34" r="3.5" />
               <circle cx="132" cy="182" r="3.5" />
               <circle cx="132" cy="238" r="3.5" />
               <circle cx="270" cy="182" r="3.5" />
-              <circle cx="312" cy="182" r="3.5" />
+              <circle cx="306" cy="182" r="3.5" />
             </g>
 
             <g class="schematic-part">
-              <path class="resistor" d="M78 74 l-8 7 l16 7 l-16 7 l16 7 l-16 7 l8 7" />
-              <text x="46" y="97">1k</text>
+              <path class="resistor" d="M82 72 l-8 7 l16 7 l-16 7 l16 7 l-16 7 l8 7" />
+              <text x="50" y="96">1kΩ</text>
 
-              <path class="diode" d="M64 182 h28 M67 170 l11 20 l11 -20 Z M92 166 v32" />
-              <text x="32" y="170">ZD</text>
-              <text x="26" y="185">6.2V</text>
+              <path class="diode" d="M68 182 h28 M71 170 l11 20 l11 -20 Z M96 166 v32" />
+              <text x="34" y="170">ZD</text>
+              <text x="24" y="186">6.2V</text>
 
-              <path class="opamp" d="M132 90 L132 210 L204 150 Z" />
-              <text x="154" y="154">UA741</text>
+              <path class="opamp" d="M132 94 L132 206 L204 150 Z" />
+              <text x="155" y="154">UA741</text>
               <text x="120" y="120">3</text>
-              <text x="142" y="124">+</text>
-              <text x="120" y="186">2</text>
-              <text x="142" y="190">−</text>
-              <text x="208" y="116">6</text>
-              <text x="138" y="52">7</text>
+              <text x="143" y="124">+</text>
+              <text x="120" y="176">2</text>
+              <text x="143" y="180">−</text>
+              <text x="208" y="118">6</text>
+              <text x="138" y="53">7</text>
               <text x="138" y="232">4</text>
 
               <circle class="transistor" cx="270" cy="118" r="30" />
@@ -304,29 +304,31 @@
               <line x1="258" y1="102" x2="270" y2="88" />
               <line x1="258" y1="134" x2="276" y2="148" />
               <path class="arrow" d="M268 144 l10 4 l-4 -10" />
-              <text x="248" y="82">2SC1384</text>
+              <text x="246" y="82">2SC1384</text>
               <text x="278" y="90">C</text>
-              <text x="242" y="111">B</text>
+              <text x="242" y="112">B</text>
               <text x="280" y="154">E</text>
 
-              <path class="resistor" d="M228 182 l-7 8 l7 8 l-7 8 l7 8 l-7 8" />
-              <text x="198" y="224">10k</text>
+              <path class="resistor" d="M226 182 l-7 8 l7 8 l-7 8 l7 8 l-7 8" />
+              <text x="194" y="224">10kΩ</text>
 
               <path class="resistor" d="M286 182 l-7 8 l7 8 l-7 8 l7 8 l-7 8" />
-              <text x="296" y="224">RL</text>
+              <text x="297" y="224">RL</text>
 
-              <line x1="312" y1="62" x2="326" y2="62" />
-              <line x1="316" y1="74" x2="326" y2="74" />
-              <line x1="312" y1="206" x2="326" y2="206" />
-              <line x1="316" y1="218" x2="326" y2="218" />
+              <line x1="306" y1="64" x2="320" y2="64" />
+              <line x1="310" y1="76" x2="320" y2="76" />
+              <line x1="306" y1="116" x2="320" y2="116" />
+              <line x1="310" y1="128" x2="320" y2="128" />
+              <line x1="306" y1="198" x2="320" y2="198" />
+              <line x1="310" y1="210" x2="320" y2="210" />
             </g>
 
             <g class="schematic-labels">
-              <text x="300" y="28">+VCC</text>
-              <text x="300" y="256">-VCC</text>
-              <text x="86" y="110">Vref</text>
-              <text x="278" y="176">VL</text>
-              <text x="318" y="176">N</text>
+              <text x="292" y="28">+VCC</text>
+              <text x="92" y="110">Vref</text>
+              <text x="274" y="176">VL</text>
+              <text x="314" y="176">N</text>
+              <text x="292" y="256">-VCC</text>
             </g>
           </svg>
         </div>

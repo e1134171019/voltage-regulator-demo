@@ -81,6 +81,7 @@ export async function parseFzpzPackage(arrayBuffer, meta) {
   const typeSet = [...new Set(connectors.map((connector) => connector.type).filter(Boolean))]
   const classification = classifyPackage({ title, moduleId, connectors, filename: meta.filename || meta.path })
   normalizeSemiconductorSvg(svgDoc, { title, moduleId, filename: meta.filename || meta.path, kind: classification.kind })
+  namespaceSvgIds(svgDoc, meta.key)
   const normalizedSvgText = new XMLSerializer().serializeToString(svgDoc)
 
   return {
@@ -136,6 +137,51 @@ function normalizeSemiconductorSvg(svgDoc, meta) {
     const current = (node.getAttribute('fill') || '').trim().toLowerCase()
     if (!current || current === '#000' || current === '#000000') {
       node.setAttribute('fill', '#f3f4f6')
+    }
+  })
+}
+
+function namespaceSvgIds(svgDoc, key) {
+  const prefix = `fzp_${String(key || 'part').replace(/[^a-z0-9_-]/gi, '_')}`
+  const elementsWithIds = [...svgDoc.querySelectorAll('[id]')]
+  if (!elementsWithIds.length) {
+    return
+  }
+
+  const idMap = new Map()
+  elementsWithIds.forEach((element) => {
+    const oldId = element.getAttribute('id')
+    if (!oldId) {
+      return
+    }
+
+    const nextId = `${prefix}_${oldId}`
+    idMap.set(oldId, nextId)
+    element.setAttribute('id', nextId)
+  })
+
+  const allElements = [svgDoc.documentElement, ...svgDoc.documentElement.querySelectorAll('*')]
+  allElements.forEach((element) => {
+    for (const attr of [...element.attributes]) {
+      let nextValue = attr.value
+
+      idMap.forEach((nextId, oldId) => {
+        if (nextValue === oldId) {
+          nextValue = nextId
+        }
+
+        if (nextValue.includes(`url(#${oldId})`)) {
+          nextValue = nextValue.replaceAll(`url(#${oldId})`, `url(#${nextId})`)
+        }
+
+        if (nextValue.includes(`#${oldId}`)) {
+          nextValue = nextValue.replaceAll(`#${oldId}`, `#${nextId}`)
+        }
+      })
+
+      if (nextValue !== attr.value) {
+        element.setAttribute(attr.name, nextValue)
+      }
     }
   })
 }
