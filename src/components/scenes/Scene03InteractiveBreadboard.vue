@@ -593,6 +593,7 @@ const wireColorOptions = [
 const PART_LAYOUTS = [
   { id: 'ua741', match: 'custom_ua741_labeled_2x_tight', kind: 'IC', label: 'UA741' },
   { id: 'npn', match: 'custom_npn_to92_cbe_2x_cbe_inside_fixed', kind: 'Transistor', label: '2SC1384 NPN (ECB)' },
+  { id: 'supply', match: 'custom_voltage_probe_meter_simplified_2pin', kind: 'Power', label: '直流電源' },
   { id: 'meter', match: 'custom_voltage_probe_meter_simplified_2pin', kind: 'Instrument', label: '三用電表 V' },
   { id: 'zener', match: 'custom_zener_u_6v2_2x_ultrashort', kind: 'Reference', label: 'ZD 6.2V' },
   { id: 'rz', match: 'custom_resistor_470r_u_2x_ultrashort_center_label', kind: 'Resistor', label: '470R' },
@@ -827,7 +828,7 @@ const renderedParts = computed(() => {
 
     // Calculate connector wiring status
     const connectorStatus = part.package.connectors.map((connector) => {
-      const holeName = part.holes?.[connector.id]
+      const holeName = getPlacedPartPinHoleName(part.id, connector.id)
       if (!holeName || !connector.anchor) {
         return { connector, holeName, isConnected: false }
       }
@@ -960,12 +961,15 @@ const regulatorModel = computed(() => {
 })
 
 const boardNodes = computed(() => {
+  const supply = activeSupplyConnection.value
+  const vinHole = supply?.redHole || '32topRed'
+  const gndHole = supply?.blackHole || '32bottomBlue'
   const nodes = [
     {
       id: 'vin',
       label: 'VIN',
       shortLabel: 'VIN',
-      hole: '32topRed',
+      hole: vinHole,
       voltage: vin.value,
       current: regulatorModel.value.supplyCurrent,
       power: vin.value * regulatorModel.value.supplyCurrent,
@@ -975,7 +979,7 @@ const boardNodes = computed(() => {
       id: 'gnd',
       label: 'GND',
       shortLabel: 'GND',
-      hole: '32bottomBlue',
+      hole: gndHole,
       voltage: 0,
       current: regulatorModel.value.supplyCurrent,
       power: 0,
@@ -1097,6 +1101,51 @@ function getMeterConnector(partTemplate, pattern, fallbackIndex) {
   return connectors.find((connector) => pattern.test(connector.name || '')) || connectors[fallbackIndex] || null
 }
 
+function getLinkedHoleNameForPartPin(partId, pinId) {
+  if (!partId || !pinId) {
+    return ''
+  }
+
+  for (const wire of wires.value) {
+    if (wire.fromPartPin?.partId === partId && wire.fromPartPin.pinId === pinId && wire.to) {
+      return wire.to
+    }
+
+    if (wire.toPartPin?.partId === partId && wire.toPartPin.pinId === pinId && wire.from) {
+      return wire.from
+    }
+  }
+
+  return ''
+}
+
+function getPlacedPartPinHoleName(instanceId, pinId) {
+  const record = partPlacements[instanceId]
+  return record?.holes?.[pinId] || getLinkedHoleNameForPartPin(instanceId, pinId) || ''
+}
+
+function getSupplyProbeState(instanceId) {
+  const record = partPlacements[instanceId]
+  if (record?.templateId !== 'supply') {
+    return null
+  }
+
+  const partTemplate = partCatalogLookup.value.get('supply')
+  const blackProbe = getMeterConnector(partTemplate, /black|com|negative|low side/i, 0)
+  const redProbe = getMeterConnector(partTemplate, /red|positive|voltage|high side/i, 1)
+  const blackHole = blackProbe ? getPlacedPartPinHoleName(instanceId, blackProbe.id) : ''
+  const redHole = redProbe ? getPlacedPartPinHoleName(instanceId, redProbe.id) : ''
+  if (!blackHole || !redHole) {
+    return null
+  }
+
+  return {
+    instanceId,
+    redHole,
+    blackHole,
+  }
+}
+
 function getMeterProbeState(instanceId) {
   const record = partPlacements[instanceId]
   if (record?.templateId !== 'meter') {
@@ -1106,8 +1155,8 @@ function getMeterProbeState(instanceId) {
   const partTemplate = partCatalogLookup.value.get('meter')
   const blackProbe = getMeterConnector(partTemplate, /black|com|negative|low side/i, 0)
   const redProbe = getMeterConnector(partTemplate, /red|positive|voltage|high side/i, 1)
-  const blackHole = blackProbe ? record.holes?.[blackProbe.id] || '' : ''
-  const redHole = redProbe ? record.holes?.[redProbe.id] || '' : ''
+  const blackHole = blackProbe ? getPlacedPartPinHoleName(instanceId, blackProbe.id) : ''
+  const redHole = redProbe ? getPlacedPartPinHoleName(instanceId, redProbe.id) : ''
   if (!blackHole || !redHole) {
     return null
   }
@@ -1132,6 +1181,17 @@ function getMeterProbeState(instanceId) {
     color: '#a3e635',
   }
 }
+
+const activeSupplyConnection = computed(() => {
+  for (const instanceId of Object.keys(partPlacements)) {
+    const supply = getSupplyProbeState(instanceId)
+    if (supply) {
+      return supply
+    }
+  }
+
+  return null
+})
 
 const activeMeterMeasurement = computed(() => {
   if (selectedPartId.value) {
@@ -2835,22 +2895,17 @@ function handleBoardPointerUp(event) {
   }
 
   const startConnector = wireDragState.value.startConnector
-  const startHole = resolveConnectorToHole(startConnector)
-  const endHole = resolveConnectorToHole(releaseConnector)
+  const startEndpoint = resolveWireEndpoint(startConnector)
+  const endEndpoint = resolveWireEndpoint(releaseConnector)
+  const startHole = startEndpoint?.type === 'hole' ? startEndpoint.hole : null
+  const endHole = endEndpoint?.type === 'hole' ? endEndpoint.hole : null
   const validation = validateWireConnection(startConnector, releaseConnector)
 
-  if (validation.state === 'valid' && startHole && endHole) {
+  if (validation.state === 'valid' && startEndpoint && endEndpoint) {
     const wireId = `user-${nextWireId++}`
     wires.value = [
       ...wires.value,
-      {
-        id: wireId,
-        from: startHole.name,
-        to: endHole.name,
-        color: getSelectedWireColor(),
-        width: 3.1,
-        via: wireDragState.value.bendPoint || buildWireViaPoint(startHole.anchor, endHole.anchor, currentPoint),
-      },
+      buildWireRecord(wireId, startEndpoint, endEndpoint, currentPoint),
     ]
     selectedWireId.value = wireId
     selectedPartId.value = ''
@@ -2978,6 +3033,28 @@ function computePlacementFromAnchor(part, anchorHoleName, rotation, ignoreOwnerI
   return mapping
 }
 
+function buildWireRecord(wireId, startEndpoint, endEndpoint, currentPoint) {
+  const startPoint = startEndpoint.point
+  const endPoint = endEndpoint.point
+
+  return {
+    id: wireId,
+    from: startEndpoint.type === 'hole' ? startEndpoint.hole.name : '',
+    to: endEndpoint.type === 'hole' ? endEndpoint.hole.name : '',
+    fromPartPin:
+      startEndpoint.type === 'floatingPartPin'
+        ? { partId: startEndpoint.partId, pinId: startEndpoint.pinId }
+        : null,
+    toPartPin:
+      endEndpoint.type === 'floatingPartPin'
+        ? { partId: endEndpoint.partId, pinId: endEndpoint.pinId }
+        : null,
+    color: getSelectedWireColor(),
+    width: 3.1,
+    via: wireDragState.value.bendPoint || buildWireViaPoint(startPoint, endPoint, currentPoint),
+  }
+}
+
 // Priority-based hit test: connector > wireEnd > wireBody > partBody > board
 function hitTestAtPointer(point, maxDistance = Number.POSITIVE_INFINITY) {
   const connectorCandidates = []
@@ -3042,8 +3119,41 @@ function resolveConnectorToHole(connector) {
 
   if (connector.type === 'partPin') {
     const part = renderedParts.value.find((item) => item.id === connector.partId)
-    const holeName = part?.holes?.[connector.pinId]
+    const holeName = part?.holes?.[connector.pinId] || getLinkedHoleNameForPartPin(connector.partId, connector.pinId)
     return holeName ? boardHoleLookup.value.get(holeName.toUpperCase()) || null : null
+  }
+
+  return null
+}
+
+function resolveWireEndpoint(connector) {
+  if (!connector) {
+    return null
+  }
+
+  const hole = resolveConnectorToHole(connector)
+  if (hole) {
+    return {
+      type: 'hole',
+      hole,
+      point: hole.anchor,
+    }
+  }
+
+  if (connector.type === 'partPin') {
+    const part = placedParts.value.find((item) => item.id === connector.partId)
+    if (!part) {
+      return null
+    }
+
+    if (part.templateId === 'meter' || part.templateId === 'supply') {
+      return {
+        type: 'floatingPartPin',
+        partId: connector.partId,
+        pinId: connector.pinId,
+        point: connector.position,
+      }
+    }
   }
 
   return null
@@ -3058,12 +3168,22 @@ function validateWireConnection(startConnector, endConnector) {
     return { state: 'invalid', label: 'SAME POINT' }
   }
 
-  const startHole = resolveConnectorToHole(startConnector)
-  const endHole = resolveConnectorToHole(endConnector)
-  if (!startHole || !endHole) {
+  const startEndpoint = resolveWireEndpoint(startConnector)
+  const endEndpoint = resolveWireEndpoint(endConnector)
+  if (!startEndpoint || !endEndpoint) {
     return { state: 'invalid', label: 'NO NODE' }
   }
 
+  if (startEndpoint.type === 'floatingPartPin' && endEndpoint.type === 'floatingPartPin') {
+    return { state: 'invalid', label: 'PIN TO PIN' }
+  }
+
+  if (startEndpoint.type === 'floatingPartPin' || endEndpoint.type === 'floatingPartPin') {
+    return { state: 'valid', label: 'CONNECT' }
+  }
+
+  const startHole = startEndpoint.hole
+  const endHole = endEndpoint.hole
   if (startHole.name.toUpperCase() === endHole.name.toUpperCase()) {
     return { state: 'invalid', label: 'SAME HOLE' }
   }
@@ -3148,6 +3268,14 @@ function getWireEndpointPoint(wire, side) {
   const holeName = side === 'from' ? wire.from : wire.to
   if (holeName) {
     return boardHoleLookup.value.get(holeName.toUpperCase())?.anchor || null
+  }
+
+  const partPin = side === 'from' ? wire.fromPartPin : wire.toPartPin
+  if (partPin) {
+    const connector = allConnectors.value.find(
+      (item) => item.type === 'partPin' && item.partId === partPin.partId && item.pinId === partPin.pinId,
+    )
+    return connector?.position || null
   }
 
   return side === 'from' ? wire.fromPoint || null : wire.toPoint || null
