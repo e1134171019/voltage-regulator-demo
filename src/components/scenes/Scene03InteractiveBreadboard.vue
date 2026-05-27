@@ -55,7 +55,6 @@
       <div class="panel-card value-display-card">
         <div class="value-display-stack">
           <strong class="value-display-primary">{{ primaryDisplayValue }}</strong>
-          <strong class="value-display-secondary">{{ secondaryDisplayValue }}</strong>
         </div>
       </div>
     </aside>
@@ -1467,14 +1466,6 @@ const primaryDisplayValue = computed(() => {
 
   if (selectedMeasurement.value) {
     return formatVoltage(selectedMeasurement.value.voltage)
-  }
-
-  return '--'
-})
-
-const secondaryDisplayValue = computed(() => {
-  if (referenceMeasurement.value) {
-    return formatVoltage(referenceMeasurement.value.voltage)
   }
 
   return '--'
@@ -3960,29 +3951,18 @@ function clamp(value, min, max) {
   position: relative;
   z-index: 1;
   display: grid;
-  gap: 28px;
   width: 100%;
   text-align: center;
 }
 
-.value-display-primary,
-.value-display-secondary {
+.value-display-primary {
   display: block;
   font-family: var(--font-mono);
   font-weight: 900;
   line-height: 1;
-}
-
-.value-display-primary {
   color: #bbf7d0;
   font-size: clamp(2.4rem, 4vw, 3.4rem);
   text-shadow: 0 0 18px rgba(52, 211, 153, 0.28);
-}
-
-.value-display-secondary {
-  color: #86efac;
-  font-size: clamp(1.9rem, 3vw, 2.5rem);
-  text-shadow: 0 0 14px rgba(134, 239, 172, 0.22);
 }
 
 .control-field {
