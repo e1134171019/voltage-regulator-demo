@@ -202,8 +202,10 @@
             :key="part.id"
             class="part-row"
             :class="{ active: activePalettePartId === part.id, placed: Boolean(partPlacements[part.id]) }"
+            :title="`${part.label} - ${part.kind}`"
             @pointerdown.prevent="startPaletteDrag($event, part.id)"
             @click="selectPalettePart(part.id)"
+            @contextmenu.stop.prevent="rotatePalettePart(part.id)"
           >
             <div class="part-thumb" v-html="part.previewSvg"></div>
             <div class="part-copy">
@@ -1116,6 +1118,7 @@ onMounted(async () => {
     packages.value = await loadPublicFritzingPackages()
     resetPlacements()
     window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('contextmenu', handleRuntimeContextMenu)
   } catch (error) {
     loadError.value = error instanceof Error ? error.message : String(error)
   } finally {
@@ -1128,6 +1131,7 @@ onUnmounted(() => {
   stopPaletteDrag()
   isPanning.value = false
   window.removeEventListener('keydown', handleKeyDown)
+  window.removeEventListener('contextmenu', handleRuntimeContextMenu)
 })
 
 function handleKeyDown(event) {
@@ -1246,6 +1250,10 @@ function toggleWireMode() {
 }
 
 function startPaletteDrag(event, partId) {
+  if (event.button !== 0) {
+    return
+  }
+
   if (loadingAssets.value || partPlacements[partId]) {
     return
   }
@@ -1325,6 +1333,32 @@ function selectPalettePart(partId) {
 
   pendingPlacementPartId.value = partId
   selectedPartId.value = ''
+}
+
+function rotatePalettePart(partId) {
+  if (partPlacements[partId]) {
+    selectedPartId.value = partId
+    pendingPlacementPartId.value = ''
+  } else {
+    pendingPlacementPartId.value = partId
+    selectedPartId.value = ''
+  }
+
+  selectedWireId.value = ''
+  rotateTargetPart(90)
+}
+
+function handleRuntimeContextMenu(event) {
+  if (isEditableKeyTarget(event.target)) {
+    return
+  }
+
+  if (!currentTargetPartId.value && !paletteDragState.value) {
+    return
+  }
+
+  event.preventDefault()
+  rotateTargetPart(90)
 }
 
 function partStatusLabel(partId) {
@@ -2347,7 +2381,7 @@ function clamp(value, min, max) {
 <style scoped>
 .runtime-shell {
   display: grid;
-  grid-template-columns: minmax(230px, 280px) minmax(0, 1fr) minmax(220px, 250px);
+  grid-template-columns: minmax(230px, 280px) minmax(0, 1fr) minmax(170px, 190px);
   gap: 18px;
   align-items: start;
   min-height: 760px;
@@ -2697,32 +2731,52 @@ function clamp(value, min, max) {
 .panel-note {
   position: relative;
   z-index: 1;
-  margin: 12px 0 0;
+  display: none;
+  margin: 0;
   color: #9eb5c8;
   font-size: 0.88rem;
   line-height: 1.6;
+}
+
+.parts-card {
+  padding: 10px;
+  border-radius: 8px;
+  max-height: 360px;
+  overflow: auto;
+}
+
+.parts-card .card-head {
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.parts-card .card-head strong {
+  font-size: 0.76rem;
 }
 
 .part-list {
   position: relative;
   z-index: 1;
   display: grid;
-  gap: 7px;
-  margin-top: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 8px;
 }
 
 .part-row {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
-  gap: 8px;
+  grid-template-rows: 34px 1fr;
+  gap: 3px;
   align-items: center;
-  text-align: left;
-  padding: 8px 9px;
-  border-radius: 12px;
-  border: 1px solid rgba(0, 240, 255, 0.08);
-  background: rgba(4, 16, 40, 0.68);
+  justify-items: center;
+  min-width: 0;
+  min-height: 54px;
+  padding: 4px 3px;
+  border-radius: 4px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(10, 18, 32, 0.7);
   cursor: pointer;
-  transition: border-color 0.18s ease, transform 0.18s ease;
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
 
 .part-row:not(.placed) {
@@ -2731,8 +2785,8 @@ function clamp(value, min, max) {
 
 .part-row:hover,
 .part-row.active {
-  border-color: rgba(0, 240, 255, 0.28);
-  transform: translateY(-1px);
+  border-color: rgba(0, 240, 255, 0.55);
+  background: rgba(14, 35, 58, 0.88);
 }
 
 .part-row.placed {
@@ -2741,10 +2795,11 @@ function clamp(value, min, max) {
 
 .part-row span {
   color: #a5f3fc;
-  font-size: 0.62rem;
+  font-size: 0.56rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  text-transform: none;
+  line-height: 1;
 }
 
 .part-row strong,
@@ -2761,12 +2816,12 @@ function clamp(value, min, max) {
 }
 
 .part-thumb {
-  width: 42px;
-  height: 38px;
+  width: 34px;
+  height: 30px;
   display: grid;
   place-items: center;
-  padding: 4px;
-  border-radius: 9px;
+  padding: 2px;
+  border-radius: 3px;
   background: rgba(3, 12, 28, 0.82);
   border: 1px solid rgba(0, 240, 255, 0.08);
 }
@@ -2806,9 +2861,32 @@ function clamp(value, min, max) {
 }
 
 .part-copy {
-  display: grid;
-  gap: 4px;
+  display: block;
+  width: 100%;
   min-width: 0;
+  overflow: hidden;
+}
+
+.part-copy span,
+.part-copy small {
+  display: none;
+}
+
+.part-copy strong {
+  display: block;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.part-label {
+  width: 100%;
+  overflow: hidden;
+  color: #e7fbff;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .part-row small,
@@ -2827,7 +2905,7 @@ function clamp(value, min, max) {
 }
 
 .board-toolbar {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .tool-btn {
@@ -2971,7 +3049,7 @@ function clamp(value, min, max) {
 
 @media (max-width: 1440px) {
   .runtime-shell {
-    grid-template-columns: minmax(220px, 260px) minmax(0, 1fr) minmax(210px, 240px);
+    grid-template-columns: minmax(220px, 260px) minmax(0, 1fr) minmax(160px, 180px);
   }
 }
 
@@ -3040,12 +3118,13 @@ function clamp(value, min, max) {
   }
 
   .part-row {
-    grid-template-columns: 42px minmax(0, 1fr);
+    grid-template-columns: none;
+    grid-template-rows: 34px 1fr;
   }
 
   .part-thumb {
-    width: 42px;
-    height: 38px;
+    width: 34px;
+    height: 30px;
   }
 }
 </style>
