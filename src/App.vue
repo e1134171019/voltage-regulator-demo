@@ -120,4 +120,81 @@ import VoltageRegulatorPresentation from './views/VoltageRegulatorPresentation.v
   background: #d7e3ee !important;
   color: #10233f !important;
 }
+
+/* Scene 02 compact fit: keep the phone-load page visible without internal scrolling. */
+:global(.slide-surface .app) {
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+:global(.slide-surface .hdr) {
+  padding: 8px 28px 6px !important;
+  min-height: 76px !important;
+}
+
+:global(.slide-surface .main-title) {
+  font-size: clamp(24px, 2.45vw, 34px) !important;
+  letter-spacing: 2px !important;
+}
+
+:global(.slide-surface .main-sub) {
+  font-size: clamp(11px, 0.95vw, 14px) !important;
+  margin-top: 4px !important;
+}
+
+:global(.slide-surface .triangle-layout) {
+  grid-template-rows: 300px minmax(260px, 1fr) !important;
+  gap: 10px 24px !important;
+  width: min(1420px, 96vw) !important;
+  height: calc(100% - 78px) !important;
+  padding: 8px 20px 0 !important;
+}
+
+:global(.slide-surface .pane-ttl) {
+  font-size: 11px !important;
+  letter-spacing: 2px !important;
+  margin-bottom: 5px !important;
+  padding-bottom: 5px !important;
+}
+
+:global(.slide-surface .phone-scene) {
+  min-height: 246px !important;
+  height: 246px !important;
+  padding-top: 0 !important;
+  transform: scale(0.82) !important;
+  transform-origin: top center !important;
+}
+
+:global(.slide-surface .mods-pane),
+:global(.slide-surface .curve-pane) {
+  overflow: hidden !important;
+}
+
+:global(.slide-surface .mod-scene) {
+  min-height: 0 !important;
+  height: 224px !important;
+  transform: scale(0.84) !important;
+  transform-origin: top left !important;
+  width: 119% !important;
+}
+
+:global(.slide-surface .load-wrap) {
+  margin-top: 4px !important;
+  padding: 8px 12px !important;
+}
+
+:global(.slide-surface .curve-panel) {
+  height: 264px !important;
+  min-height: 0 !important;
+  padding: 10px 12px !important;
+}
+
+:global(.slide-surface .curve-svg) {
+  height: 214px !important;
+}
+
+:global(.slide-surface .ftr) {
+  display: none !important;
+}
 </style>
