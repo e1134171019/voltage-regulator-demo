@@ -505,7 +505,7 @@ const panStartX = ref(0)
 const panStartY = ref(0)
 const panMoved = ref(false)
 
-const RUNTIME_STORAGE_KEY = 'slide03-runtime-state-v1'
+const RUNTIME_STORAGE_KEY = 'slide03-runtime-state-v2'
 
 let nextWireId = 1
 let nextPartInstanceId = 1
@@ -599,6 +599,12 @@ function restorePersistedRuntimeState() {
       return false
     }
 
+    const hasSavedPlacements = Object.keys(parsed.partPlacements || {}).length > 0
+    const hasSavedWires = Array.isArray(parsed.wires) && parsed.wires.length > 0
+    if (!hasSavedPlacements && !hasSavedWires) {
+      return false
+    }
+
     restoreState({
       partPlacements: parsed.partPlacements || {},
       pendingTemplateRotations: parsed.pendingTemplateRotations || {},
@@ -616,6 +622,119 @@ function restorePersistedRuntimeState() {
     console.warn('Failed to restore slide 3 runtime state:', error)
     return false
   }
+}
+
+function buildDefaultPlacedPart(templateId, instanceId, anchorHoleName, rotation = 0) {
+  const template = partCatalogLookup.value.get(templateId)
+  const holes = template && anchorHoleName ? computePlacementFromAnchor(template, anchorHoleName, rotation) : null
+  return [
+    instanceId,
+    {
+      templateId,
+      holes: holes || {},
+      freePosition: null,
+      rotation,
+    },
+  ]
+}
+
+function buildFloatingPart(templateId, instanceId, freePosition, rotation = 0) {
+  return [
+    instanceId,
+    {
+      templateId,
+      holes: {},
+      freePosition,
+      rotation,
+    },
+  ]
+}
+
+function makeFloatingPinWire(id, partId, pinId, holeName, color = '#2563eb') {
+  return {
+    id,
+    from: '',
+    to: holeName,
+    fromPartPin: { partId, pinId },
+    toPartPin: null,
+    color,
+    width: 3.1,
+    via: null,
+  }
+}
+
+function makeHoleWire(id, from, to, color = '#2563eb', via = null) {
+  return {
+    id,
+    from,
+    to,
+    fromPartPin: null,
+    toPartPin: null,
+    color,
+    width: 3.1,
+    via,
+  }
+}
+
+function getHolePoint(holeName, offsetX = 0, offsetY = 0) {
+  const anchor = boardHoleLookup.value.get((holeName || '').toUpperCase())?.anchor
+  if (!anchor) {
+    return { x: 0, y: 0 }
+  }
+
+  return {
+    x: anchor.x + offsetX,
+    y: anchor.y + offsetY,
+  }
+}
+
+function buildDefaultRuntimeState() {
+  const partPlacementsSeed = Object.fromEntries([
+    buildPlacedPart('rb', 'rb-1', '10F', 90),
+    buildPlacedPart('zener', 'zener-1', '10S', 270),
+    buildPlacedPart('ua741', 'ua741-1', '20K', 0),
+    buildPlacedPart('npn', 'npn-1', '43F', 0),
+    buildPlacedPart('r1', 'r1-1', '41M', 0),
+    buildPlacedPart('r2', 'r2-1', '41M', 90),
+    buildPlacedPart('rz', 'rz-1', '46M', 90),
+    buildFloatingPart('supply', 'supply-1', getHolePoint('1bottomBlue', -140, -12), 0),
+    buildFloatingPart('supply', 'supply-2', getHolePoint('55topBlue', 22, 54), 180),
+  ])
+
+  return {
+    partPlacements: partPlacementsSeed,
+    pendingTemplateRotations: Object.fromEntries(PART_LAYOUTS.map((layout) => [layout.id, 0])),
+    wires: [
+      makeFloatingPinWire('user-1', 'supply-1', 'connector1', '1topRed'),
+      makeFloatingPinWire('user-2', 'supply-1', 'connector0', '1bottomBlue'),
+      makeFloatingPinWire('user-3', 'supply-2', 'connector1', '6bottomBlue'),
+      makeFloatingPinWire('user-4', 'supply-2', 'connector0', '55topBlue'),
+      makeHoleWire('user-5', '10K', '22K'),
+      makeHoleWire('user-6', '21K', '41M'),
+      makeHoleWire('user-7', '22F', '45F'),
+      makeHoleWire('user-8', '21F', '21topRed'),
+      makeHoleWire('user-9', '23K', '23topBlue'),
+      makeHoleWire('user-10', '44F', '44topRed'),
+      makeHoleWire('user-11', '43F', '46M'),
+      makeHoleWire('user-12', '10S', '10topBlue'),
+      makeHoleWire('user-13', '41R', '41topBlue'),
+      makeHoleWire('user-14', '46R', '46topBlue'),
+    ],
+    nextWireId: 15,
+    nextPartInstanceId: 9,
+    vin: 12,
+    loadCurrent: 0.28,
+    meterReadMode: '',
+  }
+}
+
+function restoreBuiltInDefaultRuntimeState() {
+  const seed = buildDefaultRuntimeState()
+  restoreState(seed)
+  vin.value = seed.vin
+  loadCurrent.value = seed.loadCurrent
+  meterReadMode.value = seed.meterReadMode
+  captureState()
 }
 
 const wireColorOptions = [
@@ -2192,7 +2311,7 @@ onMounted(async () => {
     packages.value = await loadPublicFritzingPackages()
     if (!restorePersistedRuntimeState()) {
       resetPlacements()
-      captureState()
+      restoreBuiltInDefaultRuntimeState()
     }
     window.addEventListener('keydown', handleKeyDown, true)
     window.addEventListener('contextmenu', handleRuntimeContextMenu)
