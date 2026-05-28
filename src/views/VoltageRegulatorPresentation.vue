@@ -91,7 +91,7 @@ const slideList = [
   { title: '手機錄影場景', component: Slide02PhoneLoad, immersive: true },
   { title: '完整定電壓電路總覽', component: Slide07CircuitOverview },
   {
-    title: '① 節點1 — V_Z (ZD 陰極)',
+    title: 'Vref：電壓參考',
     component: Scene03InteractiveBreadboard,
     props: {
       nodeFilter: 'node1_vref',
@@ -99,51 +99,12 @@ const slideList = [
       showNodeInfo: true,
     },
   },
-  {
-    title: '② 節點2 — μA741 腳3 V⁺',
-    component: Scene03InteractiveBreadboard,
-    props: {
-      nodeFilter: 'node2_vplus',
-      nodeInfoConfig: SCENE_CONFIGS.node2_vplus,
-      showNodeInfo: true,
-    },
-  },
-  {
-    title: '③ 節點3 — μA741 腳2 V⁻',
-    component: Scene03InteractiveBreadboard,
-    props: {
-      nodeFilter: 'node3_vminus',
-      nodeInfoConfig: SCENE_CONFIGS.node3_vminus,
-      showNodeInfo: true,
-    },
-  },
-  {
-    title: '④ 節點4 — μA741 腳6 OUT',
-    component: Scene03InteractiveBreadboard,
-    props: {
-      nodeFilter: 'node4_out',
-      nodeInfoConfig: SCENE_CONFIGS.node4_out,
-      showNodeInfo: true,
-    },
-  },
-  {
-    title: '⑤ 節點5 — 射極 V_L（主角）',
-    component: Scene03InteractiveBreadboard,
-    props: {
-      nodeFilter: 'node5_bjt',
-      nodeInfoConfig: SCENE_CONFIGS.node5_bjt,
-      showNodeInfo: true,
-    },
-  },
-  {
-    title: '⑥ 節點6 — 完整負回授驗證',
-    component: Scene03InteractiveBreadboard,
-    props: {
-      nodeFilter: 'node6_feedback',
-      nodeInfoConfig: SCENE_CONFIGS.node6_feedback,
-      showNodeInfo: true,
-    },
-  },
+  { title: 'V+：UA741 同相輸入', component: BlankSlide },
+  { title: 'V−：UA741 反相輸入', component: BlankSlide },
+  { title: 'UA741 OUT：修正訊號', component: BlankSlide },
+  { title: 'NPN Base：控制端與輸出調整', component: BlankSlide },
+  { title: 'VL：輸出電壓量測', component: BlankSlide },
+  { title: 'RL：負載變化與電流', component: BlankSlide },
   { title: '結語', component: Slide10LaunchLinks },
 ]
 
