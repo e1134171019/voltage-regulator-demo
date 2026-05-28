@@ -20,18 +20,8 @@ export const SCENE_CONFIGS = {
       'meter-16',   // 三用電表：讓第 4 篇可用電表實際量 Vref
     ],
     
-    visibleWires: [
-      'user-1',     // +Vcc to breadboard 1topRed
-      'user-2',     // GND to breadboard 1bottomBlue
-      'user-22',    // 10topRed → 10H (1k 上端，连接 ZD 上端)
-      'user-23',    // 10T → 10bottomBlue (1k 下端连 GND)
-      'user-41',    // 1topRed 连到 supply-14 (+Vcc)
-      'user-42',    // 1bottomBlue 连到 supply-14 (GND)
-      'user-43',    // 1bottomBlue 连到 supply-15 (GND)
-      'user-44',    // supply-15 (+Vcc) 连到 63topBlue
-      'user-48',    // 三用電表紅棒
-      'user-49',    // 三用電表黑棒
-    ],
+    // 第 4 篇要讓使用者重新拉電表線；空陣列代表不限制導線，避免新線 user-50 之後被隱藏。
+    visibleWires: [],
     
     highlightParts: [
       'zener-1',
