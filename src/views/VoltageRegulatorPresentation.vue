@@ -277,11 +277,11 @@ function updateWorkspaceSize() {
   grid-template-columns: 1.2fr 2fr 1.2fr;
   align-items: center;
   padding: 16px 24px;
-  background: linear-gradient(135deg, rgba(4, 12, 30, 0.76), rgba(9, 19, 48, 0.68));
+  background: linear-gradient(135deg, rgba(240, 248, 255, 0.92), rgba(230, 244, 255, 0.88));
   backdrop-filter: blur(20px);
   border: 1px solid var(--nova-border);
   border-radius: 20px;
-  box-shadow: 0 -12px 30px rgba(1, 8, 22, 0.28);
+  box-shadow: 0 -12px 30px rgba(100, 160, 200, 0.15);
 }
 
 .presentation-footer.immersive {
@@ -291,8 +291,8 @@ function updateWorkspaceSize() {
 }
 
 .slide-dropdown {
-  background: rgba(4, 16, 40, 0.92);
-  border: 1px solid rgba(0, 240, 255, 0.18);
+  background: rgba(240, 248, 255, 0.92);
+  border: 1px solid rgba(100, 150, 200, 0.28);
   color: var(--nova-text);
   font-weight: 700;
   font-size: 0.85rem;
@@ -302,7 +302,7 @@ function updateWorkspaceSize() {
   cursor: pointer;
   max-width: 280px;
   width: 100%;
-  box-shadow: inset 0 0 0 1px rgba(255, 79, 163, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(100, 150, 200, 0.12);
 }
 
 .slide-dropdown:focus {
