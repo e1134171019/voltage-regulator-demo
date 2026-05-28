@@ -92,7 +92,6 @@ export const SCENE_CONFIGS = {
       'supply-15',
       'ua741-9',
       'r2-13',      // 10k 反馈电阻
-      'rb-17',      // BJT 基极限流电阻
     ],
     
     visibleWires: [
