@@ -1005,7 +1005,7 @@ const PART_LAYOUTS = [
 const COMPONENT_RULES = {
   zenerBreakdownVoltage: 6.2,
   diodeForwardVoltage: 0.65,
-  baseEmitterVoltage: 0.7,
+  baseEmitterVoltage: 0.62,
   minimumVisibleCurrent: 0.00002,
 }
 
@@ -1527,15 +1527,16 @@ const regulatorModel = computed(() => {
   const railSpan = positiveRail - negativeRail
   const vref = vin.value > 6.7 ? 6.2 : Math.max(0, vin.value - 0.45)
   const feedbackFactor = clamp(circuitTopology.value.feedbackFactor || 1, 0.05, 1)
-  const nominalVout = vref / feedbackFactor
+  const nominalVout = clamp(vref / feedbackFactor, 0, positiveRail - 0.18)
   const achievableVout = Math.max(0, positiveRail - 1.45 - loadCurrent.value * 0.58)
-  const regulationSag = loadCurrent.value * 0.32
-  const vout = clamp(Math.min(nominalVout - regulationSag, achievableVout), 0, positiveRail - 0.18)
+  const vout = clamp(Math.min(nominalVout, achievableVout), 0, positiveRail - 0.18)
   const vminus = vout * feedbackFactor
   const vplus = vref
   const error = vplus - vminus
-  const opAmpOut = clamp(4.2 + error * 3.6, negativeRail + 0.8, Math.max(negativeRail + 0.8, positiveRail - 1.05))
-  const baseVoltage = clamp(Math.min(vout + 0.72, opAmpOut), Math.max(0, negativeRail + 0.2), positiveRail - 0.35)
+  const baseEmitterTarget = COMPONENT_RULES.baseEmitterVoltage
+  const opAmpTarget = vout + baseEmitterTarget
+  const opAmpOut = clamp(opAmpTarget, negativeRail + 0.8, Math.max(negativeRail + 0.8, positiveRail - 1.05))
+  const baseVoltage = opAmpOut
   const beta = 55
   const baseCurrent = loadCurrent.value / beta
   const feedbackCurrent =
