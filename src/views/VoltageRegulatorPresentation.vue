@@ -97,7 +97,15 @@ const slideList = [
       showNodeInfo: true,
     },
   },
-  { title: 'V+：UA741 同相輸入', component: BlankSlide },
+  {
+    title: 'V+：UA741 同相輸入',
+    component: Scene03InteractiveBreadboard,
+    props: {
+      nodeFilter: 'node2_vplus',
+      nodeInfoConfig: SCENE_CONFIGS.node2_vplus,
+      showNodeInfo: true,
+    },
+  },
   { title: 'V−：UA741 反相輸入', component: BlankSlide },
   { title: 'UA741 OUT：修正訊號', component: BlankSlide },
   { title: 'NPN Base：控制端與輸出調整', component: BlankSlide },
