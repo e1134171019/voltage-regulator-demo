@@ -197,4 +197,88 @@ import VoltageRegulatorPresentation from './views/VoltageRegulatorPresentation.v
 :global(.slide-surface .ftr) {
   display: none !important;
 }
+
+/* Scene 03 / node teaching pages: bright background + dark instrument cards. */
+:global(.runtime-shell .panel-card) {
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.88), rgba(30, 41, 59, 0.82)) !important;
+  border: 1px solid rgba(148, 216, 255, 0.22) !important;
+  color: #eaf6ff !important;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.18) !important;
+}
+
+:global(.runtime-shell .card-head strong),
+:global(.runtime-shell .node-info-content strong),
+:global(.runtime-shell .inspector-meta strong),
+:global(.runtime-shell .part-copy strong) {
+  color: #f8fbff !important;
+}
+
+:global(.runtime-shell .badge),
+:global(.runtime-shell .badge-slate) {
+  background: rgba(34, 211, 238, 0.16) !important;
+  color: #67e8f9 !important;
+  border: 1px solid rgba(103, 232, 249, 0.18) !important;
+}
+
+:global(.runtime-shell .node-info-content),
+:global(.runtime-shell .explanation),
+:global(.runtime-shell .panel-note),
+:global(.runtime-shell .control-field span),
+:global(.runtime-shell .inspector-meta span),
+:global(.runtime-shell .inspector-meta small),
+:global(.runtime-shell .part-copy span),
+:global(.runtime-shell .part-copy small) {
+  color: #b6c7d8 !important;
+}
+
+:global(.runtime-shell .expected-value span),
+:global(.runtime-shell .electron-flow span),
+:global(.runtime-shell .rule-warning small) {
+  color: #fde68a !important;
+}
+
+:global(.runtime-shell .control-field strong) {
+  color: #86efac !important;
+}
+
+:global(.runtime-shell .meter-readout-screen) {
+  background: radial-gradient(circle at 18% 18%, rgba(20, 184, 166, 0.12), transparent 36%), #07111f !important;
+  border: 1px solid rgba(134, 239, 172, 0.18) !important;
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.28) !important;
+}
+
+:global(.runtime-shell .meter-readout-screen span),
+:global(.runtime-shell .meter-readout-screen small) {
+  color: #9fb4c7 !important;
+}
+
+:global(.runtime-shell .meter-readout-screen strong),
+:global(.runtime-shell .value-display-primary) {
+  color: #86efac !important;
+  text-shadow: 0 0 14px rgba(134, 239, 172, 0.28) !important;
+}
+
+:global(.runtime-shell .tool-btn),
+:global(.runtime-shell .part-row) {
+  background: rgba(15, 23, 42, 0.78) !important;
+  border: 1px solid rgba(148, 163, 184, 0.24) !important;
+  color: #e2e8f0 !important;
+}
+
+:global(.runtime-shell .tool-btn:hover),
+:global(.runtime-shell .part-row:hover),
+:global(.runtime-shell .part-row.active) {
+  border-color: rgba(34, 211, 238, 0.55) !important;
+  background: rgba(22, 78, 99, 0.72) !important;
+  color: #ffffff !important;
+}
+
+:global(.runtime-shell .schematic-viewport) {
+  background: rgba(226, 232, 240, 0.82) !important;
+  border: 1px solid rgba(148, 216, 255, 0.18) !important;
+}
+
+:global(.runtime-shell input[type='range']) {
+  accent-color: #22d3ee;
+}
 </style>
