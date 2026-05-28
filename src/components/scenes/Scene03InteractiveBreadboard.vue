@@ -690,13 +690,13 @@ function getHolePoint(holeName, offsetX = 0, offsetY = 0) {
 
 function buildDefaultRuntimeState() {
   const partPlacementsSeed = Object.fromEntries([
-    buildPlacedPart('rb', 'rb-1', '10F', 90),
-    buildPlacedPart('zener', 'zener-1', '10S', 270),
-    buildPlacedPart('ua741', 'ua741-1', '20K', 0),
-    buildPlacedPart('npn', 'npn-1', '43F', 0),
-    buildPlacedPart('r1', 'r1-1', '41M', 0),
-    buildPlacedPart('r2', 'r2-1', '41M', 90),
-    buildPlacedPart('rz', 'rz-1', '46M', 90),
+    buildDefaultPlacedPart('rb', 'rb-1', '10F', 90),
+    buildDefaultPlacedPart('zener', 'zener-1', '10S', 270),
+    buildDefaultPlacedPart('ua741', 'ua741-1', '20K', 0),
+    buildDefaultPlacedPart('npn', 'npn-1', '43F', 0),
+    buildDefaultPlacedPart('r1', 'r1-1', '41M', 0),
+    buildDefaultPlacedPart('r2', 'r2-1', '41M', 90),
+    buildDefaultPlacedPart('rz', 'rz-1', '46M', 90),
     buildFloatingPart('supply', 'supply-1', getHolePoint('1bottomBlue', -140, -12), 0),
     buildFloatingPart('supply', 'supply-2', getHolePoint('55topBlue', 22, 54), 180),
   ])
