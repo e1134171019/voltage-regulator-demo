@@ -1,453 +1,227 @@
 <template>
-  <section ref="runtimeShellRef" class="runtime-shell node-viewer">
-    <!-- 控制面板 -->
-    <aside class="control-column">
-      <div class="panel-card info-card">
-        <div class="card-head">
-          <span class="badge">{{ nodeConfig.title }}</span>
-        </div>
-        <div class="info-content">
-          <p class="explanation">{{ nodeConfig.explanation }}</p>
-          <div class="expected-value">
-            <strong>預期值:</strong>
-            {{ nodeConfig.expectedValue.voltage }} {{ nodeConfig.expectedValue.unit }}
+  <div class="scene-node-viewer" :class="`view-${nodeId}`">
+    <!-- 上層信息面板 -->
+    <div class="node-info-overlay">
+      <div class="info-panel">
+        <h2>{{ nodeConfig?.title }}</h2>
+        <p class="explanation">{{ nodeConfig?.explanation }}</p>
+        
+        <div class="values-row">
+          <div class="value-item">
+            <span class="label">預期值:</span>
+            <strong>{{ nodeConfig?.expectedValue.voltage }} {{ nodeConfig?.expectedValue.unit }}</strong>
           </div>
-          <div class="electron-flow">
-            <strong>電子流向:</strong>
-            {{ nodeConfig.electronFlow.join(' • ') }}
+          <div class="value-item">
+            <span class="label">電子流向:</span>
+            <strong>{{ nodeConfig?.electronFlow.join(' → ') }}</strong>
           </div>
         </div>
-      </div>
-
-      <div class="panel-card meter-readout-card">
-        <div class="card-head">
-          <span class="badge">DMM</span>
-          <strong>三用電表</strong>
-        </div>
-
-        <div class="meter-mode-buttons">
-          <button
-            class="tool-btn"
-            :class="{ active: meterReadMode === 'voltage' }"
-            @click="setMeterReadMode('voltage')"
-          >
-            量電壓
-          </button>
-        </div>
-
-        <div class="meter-readout-screen">
-          <span>{{ meterReadoutStatus }}</span>
-          <strong>{{ meterReadoutValue }}</strong>
-        </div>
-
-        <div class="meter-comparison">
-          <div class="comparison-row">
-            <span>預期:</span>
-            <strong>{{ nodeConfig.expectedValue.voltage }} V</strong>
+        
+        <div class="meter-display">
+          <div class="meter-label">DMM 量測值</div>
+          <div class="meter-value" :class="{ matched: isValueMatching }">
+            {{ meterValue }} V
           </div>
-          <div class="comparison-row">
-            <span>實測:</span>
-            <strong :class="{ match: isValueMatching }">{{ meterReadoutValue }}</strong>
+          <div class="meter-status" :class="{ match: isValueMatching, mismatch: !isValueMatching }">
+            {{ isValueMatching ? '✓ 符合預期' : '差異偏大' }}
           </div>
         </div>
       </div>
-    </aside>
+    </div>
 
-    <!-- 主要渲染区域 -->
-    <main class="runtime-main">
-      <div ref="breadboardContainerRef" class="breadboard-container">
-        <!-- 麻布板 SVG -->
-        <svg v-if="boardSvgMarkup" class="breadboard-svg" v-html="boardSvgMarkup"></svg>
-
-        <!-- Fritzing parts overlay -->
-        <div class="parts-overlay">
-          <div v-for="part in filteredParts" :key="part.id" class="part-instance" :class="part.className">
-            <component
-              :is="FritzingPartViewer"
-              :partId="part.id"
-              :partPackage="part.package"
-              :position="part.position"
-              :rotation="part.rotation"
-              :highlighted="isPartHighlighted(part.id)"
-              :visible="isPartVisible(part.id)"
-            />
-          </div>
-        </div>
-
-        <!-- Wires -->
-        <svg class="wires-canvas" :viewBox="overlayViewBox">
-          <g v-for="wire in filteredWires" :key="wire.id" class="wire-group" :class="wire.className">
-            <path :d="wire.pathData" :stroke="wire.color" :stroke-width="wire.width" fill="none" />
-            <!-- 电子流淌动画 -->
-            <circle
-              v-if="isWireHighlighted(wire.id)"
-              class="electron-particle"
-              r="4"
-              :fill="wire.color"
-              opacity="0.8"
-            >
-              <animateMotion :dur="`${wire.animationDuration}s`" repeatCount="indefinite">
-                <mpath :href="`#wire-${wire.id}`" />
-              </animateMotion>
-            </circle>
-          </g>
-
-          <!-- DMM 连接线 -->
-          <line
-            v-if="dmmPosition && meterProbePositions.red"
-            :x1="meterProbePositions.red.x"
-            :y1="meterProbePositions.red.y"
-            :x2="dmmPosition.x"
-            :y2="dmmPosition.y"
-            stroke="#dc2626"
-            stroke-width="2"
-            opacity="0.6"
-            class="dmm-probe-line"
-          />
-          <line
-            v-if="dmmPosition && meterProbePositions.black"
-            :x1="meterProbePositions.black.x"
-            :y1="meterProbePositions.black.y"
-            :x2="dmmPosition.x"
-            :y2="dmmPosition.y"
-            stroke="#1f2937"
-            stroke-width="2"
-            opacity="0.6"
-            class="dmm-probe-line"
-          />
-        </svg>
-
-        <!-- DMM 仪表 -->
-        <div v-if="dmmPosition" class="dmm-instrument" :style="dmmStyle">
-          <div class="dmm-body">
-            <span class="dmm-label">DMM</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 右侧电路图 (简化版) -->
-      <aside class="schematic-panel">
-        <h3>电路示意</h3>
-        <div class="schematic-info">
-          <p v-if="nodeConfig.description" class="description">
-            {{ nodeConfig.description }}
-          </p>
-        </div>
-      </aside>
-    </main>
-  </section>
+    <!-- Scene03 完整電路視圖 (帶過濾) -->
+    <div class="scene-wrapper">
+      <component :is="scene03" :filter-config="nodeConfig" />
+    </div>
+  </div>
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { SCENE_CONFIGS } from './nodeViewerConfigs.js'
-import FritzingPartViewer from '../lab/FritzingPartViewer.vue'
+import { calculateCircuitModel, getMeasurementValue } from './scene03SharedState.js'
+import Scene03InteractiveBreadboard from './Scene03InteractiveBreadboard.vue'
 
-// Props
 const props = defineProps({
   nodeId: {
     type: String,
     required: true,
     validator: (val) => Object.keys(SCENE_CONFIGS).includes(val),
   },
+  scene03: {
+    type: Object,
+    default: () => Scene03InteractiveBreadboard,
+  },
 })
 
-// Refs
-const runtimeShellRef = ref(null)
-const breadboardContainerRef = ref(null)
+const vin = ref(12)
+const loadCurrent = ref(0.3)
 
-// State
-const meterReadMode = ref('voltage')
-const packages = ref([])
-const boardSvgMarkup = ref('')
-const overlayViewBox = ref('0 0 800 600')
-
-// 获取配置
 const nodeConfig = computed(() => SCENE_CONFIGS[props.nodeId])
 
-// 从 Scene03 导入初始状态数据
-const allParts = ref({})
-const allWires = ref([])
-
-// 加载 Fritzing 包和初始化状态
-onMounted(async () => {
-  try {
-    // 这里可以从 Scene03 导入 loadPublicFritzingPackages
-    // 暂时跳过，假设数据已经加载
-    
-    // 初始化部分状态（从 buildDefaultRuntimeState）
-    initializeState()
-    
-    // 生成麻布板 SVG
-    generateBoardSvg()
-  } catch (error) {
-    console.error('Failed to initialize SceneNodeViewer:', error)
-  }
-})
-
-// 初始化状态 - 复用 Scene03 的数据结构
-function initializeState() {
-  // 从 Scene03 的 buildDefaultRuntimeState 复用
-  const defaultParts = {
-    'zener-1': {
-      templateId: 'zener',
-      holes: { connector0: '10S', connector1: '10M' },
-      freePosition: null,
-      rotation: 270,
-    },
-    'ua741-9': {
-      templateId: 'ua741',
-      holes: {
-        connector0: '21L',
-        connector1: '23L',
-        connector2: '25L',
-        connector3: '27L',
-        connector4: '27H',
-        connector5: '25H',
-        connector6: '23H',
-        connector7: '21H',
-      },
-      freePosition: null,
-      rotation: 0,
-    },
-    'rb-10': {
-      templateId: 'rb',
-      holes: { connector0: '10K', connector1: '10H' },
-      freePosition: null,
-      rotation: 270,
-    },
-    'npn-11': {
-      templateId: 'npn',
-      holes: { connector0: '40G', connector1: '42G', connector2: '44G' },
-      freePosition: null,
-      rotation: 0,
-    },
-    'r2-13': {
-      templateId: 'r2',
-      holes: { connector0: '32R', connector1: '32O' },
-      freePosition: null,
-      rotation: 270,
-    },
-    'supply-14': {
-      templateId: 'supply',
-      holes: {},
-      freePosition: { x: -98.6158109213909, y: 244.17395485061576 },
-      rotation: 270,
-    },
-    'supply-15': {
-      templateId: 'supply',
-      holes: {},
-      freePosition: { x: 416.4088592036236, y: 309.51232590519754 },
-      rotation: 180,
-    },
-    'meter-16': {
-      templateId: 'meter',
-      holes: {},
-      freePosition: { x: 620.4771861944973, y: 306.72290486419803 },
-      rotation: 270,
-    },
-    'rb-17': {
-      templateId: 'rb',
-      holes: { connector0: '40P', connector1: '40M' },
-      freePosition: null,
-      rotation: 270,
-    },
-  }
-
-  allParts.value = defaultParts
-
-  // 获取所有 wires（从 Scene03）
-  const defaultWires = [
-    { id: 'user-1', from: '', to: '1topRed', color: '#2563eb', width: 3.1 },
-    { id: 'user-2', from: '', to: '1bottomBlue', color: '#2563eb', width: 3.1 },
-    { id: 'user-3', from: '', to: '6bottomBlue', color: '#2563eb', width: 3.1 },
-    { id: 'user-4', from: '', to: '55topBlue', color: '#2563eb', width: 3.1 },
-    { id: 'user-22', from: '10topRed', to: '10H', color: '#2563eb', width: 3.1 },
-    { id: 'user-23', from: '10bottomBlue', to: '10M', color: '#2563eb', width: 3.1 },
-    { id: 'user-41', from: '21H', to: '10S', color: '#2563eb', width: 3.1 },
-    { id: 'user-42', from: '27L', to: '10M', color: '#2563eb', width: 3.1 },
-  ]
-
-  allWires.value = defaultWires
-}
-
-// 生成麻布板 SVG - 使用简化的占位符
-function generateBoardSvg() {
-  // 占位符：完整的 SVG 将由浏览器中的 Scene03 提供
-  boardSvgMarkup.value = '<svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg"><rect width="800" height="600" fill="#f0f0f0"/><text x="400" y="300" text-anchor="middle" dy=".3em" font-size="16" fill="#666">麻布板...</text></svg>'
-}
-
-// 计算电路模型（简化版）
 const circuitModel = computed(() => {
-  const vin = 12 // 示意值，应该从 Scene03 传入
-  const loadCurrent = 0.3 // 示意值
-  const positiveRail = vin
-  const negativeRail = 0
-  const vref = vin > 6.7 ? 6.2 : Math.max(0, vin - 0.45)
-  const vout = vref * 0.6 // 简化，实际应该更复杂
-  const vminus = vout * 0.6
-  const vplus = vref
-  const error = vplus - vminus
-  const opAmpOut = vout + 0.62 + (error * 3.6)
-  const baseCurrent = loadCurrent / 55
-  const feedbackCurrent = vout / 10000 // 假设 10k 反馈
-  const zenerCurrent = Math.max((vin - vref) / 1000 - feedbackCurrent - baseCurrent * 0.18, 0)
+  return calculateCircuitModel(vin.value, loadCurrent.value)
+})
 
-  return {
-    positiveRail,
-    negativeRail,
-    vref,
-    vplus,
-    vminus,
-    opAmpOut,
-    vout,
-    baseCurrent,
-    feedbackCurrent,
-    zenerCurrent,
+// 獲取當前節點的測量值
+const meterValue = computed(() => {
+  if (!nodeConfig.value?.meterTarget?.nodeId) {
+    return nodeConfig.value?.expectedValue?.voltage || '0.00'
   }
+  const val = getMeasurementValue(nodeConfig.value.meterTarget.nodeId, circuitModel.value)
+  return val.toFixed(2)
 })
 
-// 过滤后的 parts
-const filteredParts = computed(() => {
-  if (!nodeConfig.value.visibleParts) return []
-  
-  return nodeConfig.value.visibleParts.map((partId) => {
-    const partData = allParts.value[partId]
-    return {
-      id: partId,
-      templateId: partData?.templateId || '',
-      package: {},
-      position: { x: 100, y: 100 },
-      rotation: partData?.rotation || 0,
-      className: isPartHighlighted(partId) ? 'highlight' : '',
-      visible: isPartVisible(partId),
-      highlighted: isPartHighlighted(partId),
-    }
-  })
-})
-
-// 过滤后的 wires
-const filteredWires = computed(() => {
-  if (!nodeConfig.value.visibleWires) return []
-
-  return nodeConfig.value.visibleWires.map((wireId) => {
-    const wireData = allWires.value.find((w) => w.id === wireId)
-    return {
-      id: wireId,
-      pathData: 'M 100 100 L 200 200', // 占位符，应该从配置计算
-      color: wireData?.color || '#2563eb',
-      width: wireData?.width || 3.1,
-      animationDuration: 3,
-      className: isWireHighlighted(wireId) ? 'highlight' : '',
-      visible: true,
-      highlighted: isWireHighlighted(wireId),
-    }
-  })
-})
-
-// 检查元件是否应该高亮
-function isPartHighlighted(partId) {
-  return nodeConfig.value.highlightParts?.includes(partId) || false
-}
-
-// 检查元件是否应该显示
-function isPartVisible(partId) {
-  return nodeConfig.value.visibleParts?.includes(partId) || false
-}
-
-// 检查线路是否应该高亮
-function isWireHighlighted(wireId) {
-  return nodeConfig.value.highlightWires?.includes(wireId) || false
-}
-
-// DMM 位置
-const dmmPosition = computed(() => {
-  return nodeConfig.value.meterTarget?.position || { x: 600, y: 300 }
-})
-
-const dmmStyle = computed(() => ({
-  left: `${dmmPosition.value.x}px`,
-  top: `${dmmPosition.value.y}px`,
-}))
-
-// DMM 探针位置
-const meterProbePositions = reactive({
-  red: { x: 0, y: 0 },
-  black: { x: 0, y: 0 },
-})
-
-// DMM 读数
-const getMeterValue = () => {
-  if (!nodeConfig.value.meterTarget) {
-    return '0.00'
-  }
-
-  const meterNode = nodeConfig.value.meterTarget.nodeId
-  
-  switch (meterNode) {
-    case 'vref':
-      return circuitModel.value.vref.toFixed(2)
-    case 'vplus':
-      return circuitModel.value.vplus.toFixed(2)
-    case 'vminus':
-      return circuitModel.value.vminus.toFixed(2)
-    case 'opAmpOut':
-      return circuitModel.value.opAmpOut.toFixed(2)
-    case 'vout':
-      return circuitModel.value.vout.toFixed(2)
-    default:
-      return nodeConfig.value.expectedValue?.voltage?.toFixed(2) || '0.00'
-  }
-}
-
-const meterReadoutValue = computed(() => {
-  if (meterReadMode.value === 'voltage') {
-    return `${getMeterValue()} V`
-  }
-  return '0.00 A'
-})
-
-const meterReadoutStatus = computed(() => {
-  return '量測中...'
-})
-
-// 检查值是否匹配
+// 檢查值是否匹配
 const isValueMatching = computed(() => {
-  // 这里可以添加容差判断逻辑
-  return true
+  if (!nodeConfig.value?.expectedValue) return false
+  const expected = parseFloat(nodeConfig.value.expectedValue.voltage)
+  const measured = parseFloat(meterValue.value)
+  const tolerance = 0.1 // 0.1V 容差
+  return Math.abs(measured - expected) < tolerance
 })
-
-// 设置 DMM 模式
-function setMeterReadMode(mode) {
-  meterReadMode.value = mode
-}
 </script>
 
 <style scoped>
-.runtime-shell {
+.scene-node-viewer {
   display: flex;
+  flex-direction: column;
   height: 100%;
-  gap: 16px;
-  padding: 16px;
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-  border-radius: 12px;
+  width: 100%;
+  gap: 0;
+  position: relative;
+  background: #0f172a;
   overflow: hidden;
 }
 
-.control-column {
-  display: flex;
-  flex-direction: column;
-  width: 280px;
-  gap: 12px;
-  overflow-y: auto;
+.node-info-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 10;
+  pointer-events: none;
+  width: 100%;
+  padding: 16px;
 }
 
-.panel-card {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  padding: 12px;
+.info-panel {
+  background: rgba(30, 41, 59, 0.95);
   backdrop-filter: blur(10px);
+  border: 1px solid rgba(226, 232, 240, 0.1);
+  border-radius: 8px;
+  padding: 16px;
+  max-width: 400px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+}
+
+.info-panel h2 {
+  margin: 0 0 8px 0;
+  color: #e2e8f0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.explanation {
+  margin: 0 0 12px 0;
+  color: #94a3b8;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.values-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.1);
+}
+
+.value-item {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+}
+
+.value-item .label {
+  color: #cbd5e1;
+}
+
+.value-item strong {
+  color: #f1f5f9;
+  font-family: 'Courier New', monospace;
+  background: rgba(51, 65, 85, 0.5);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.meter-display {
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  border-radius: 6px;
+  padding: 12px;
+  text-align: center;
+}
+
+.meter-label {
+  color: #94a3b8;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.meter-value {
+  font-size: 24px;
+  font-weight: bold;
+  font-family: 'Courier New', monospace;
+  color: #fbbf24;
+  margin-bottom: 6px;
+  transition: color 0.3s;
+}
+
+.meter-value.matched {
+  color: #4ade80;
+}
+
+.meter-status {
+  font-size: 11px;
+  font-weight: 500;
+  color: #f87171;
+  transition: color 0.3s;
+}
+
+.meter-status.match {
+  color: #4ade80;
+}
+
+.scene-wrapper {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.scene-wrapper :deep(.runtime-shell) {
+  height: 100%;
+  padding: 0 !important;
+  gap: 0 !important;
+}
+
+.scene-wrapper :deep(.control-column) {
+  display: none !important;
+}
+
+.scene-wrapper :deep(.board-column) {
+  width: 100%;
+  flex: 1;
+}
+
+.scene-wrapper :deep(.board-frame) {
+  height: 100% !important;
+}
+</style>
+
 }
 
 .card-head {
