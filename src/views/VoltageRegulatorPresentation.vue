@@ -4,7 +4,12 @@
     <main ref="workspaceRef" class="presentation-workspace" :class="{ immersive: isImmersiveSlide }">
       <!-- Transition wrapper for slides -->
       <transition name="slide-fade" mode="out-in">
-        <div class="slide-frame" :key="currentSlide" :style="slideFrameStyle">
+        <div
+          class="slide-frame"
+          :class="{ immersive: isImmersiveSlide }"
+          :key="currentSlide"
+          :style="slideFrameStyle"
+        >
           <div class="slide-surface">
             <component :is="activeSlideComponent" v-bind="activeSlide.props || {}" />
           </div>
@@ -122,10 +127,27 @@ const isImmersiveSlide = computed(() => {
 const slideFrameStyle = computed(() => {
   const widthScale = workspaceSize.value.width / SLIDE_WIDTH
   const heightScale = workspaceSize.value.height / SLIDE_HEIGHT
+
+  if (isImmersiveSlide.value) {
+    const scale = Math.max(widthScale, heightScale)
+    const scaledWidth = SLIDE_WIDTH * scale
+    const scaledHeight = SLIDE_HEIGHT * scale
+
+    return {
+      '--slide-scale': scale,
+      '--slide-offset-x': `${(workspaceSize.value.width - scaledWidth) / 2}px`,
+      '--slide-offset-y': `${(workspaceSize.value.height - scaledHeight) / 2}px`,
+      width: `${workspaceSize.value.width}px`,
+      height: `${workspaceSize.value.height}px`,
+    }
+  }
+
   const scale = Math.max(0.16, Math.min(widthScale, heightScale, 1))
 
   return {
     '--slide-scale': scale,
+    '--slide-offset-x': '0px',
+    '--slide-offset-y': '0px',
     width: `${SLIDE_WIDTH * scale}px`,
     height: `${SLIDE_HEIGHT * scale}px`,
   }
@@ -251,11 +273,16 @@ function updateWorkspaceSize() {
   flex: 0 0 auto;
 }
 
+.slide-frame.immersive {
+  width: 100%;
+  height: 100%;
+}
+
 .slide-surface {
   width: 1440px;
   height: 810px;
   overflow: hidden;
-  transform: scale(var(--slide-scale));
+  transform: translate(var(--slide-offset-x, 0px), var(--slide-offset-y, 0px)) scale(var(--slide-scale));
   transform-origin: top left;
 }
 
