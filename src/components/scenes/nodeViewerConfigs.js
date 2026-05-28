@@ -75,7 +75,7 @@ export const SCENE_CONFIGS = {
       'user-26',
     ],
     
-    meterTarget: { nodeId: 'vplus' },
+    meterTarget: { nodeId: 'vp' },
   },
 
   // ③ 节点3：V−（反馈路径回到脚2）
@@ -113,7 +113,7 @@ export const SCENE_CONFIGS = {
       'user-37',  'user-38',  'user-39',  'user-40',
     ],
     
-    meterTarget: { nodeId: 'vminus' },
+    meterTarget: { nodeId: 'vm' },
   },
 
   // ④ 节点4：OUT（UA741 脚6 输出信号）
@@ -151,7 +151,7 @@ export const SCENE_CONFIGS = {
       'user-31',  'user-32',
     ],
     
-    meterTarget: { nodeId: 'opAmpOut' },
+    meterTarget: { nodeId: 'out741' },
   },
 
   // ⑤ 节点5：V_L（射极输出，主角）
@@ -191,7 +191,7 @@ export const SCENE_CONFIGS = {
       'user-33',  'user-34',  'user-35',
     ],
     
-    meterTarget: { nodeId: 'vout' },
+    meterTarget: { nodeId: 'vl' },
   },
 
   // ⑥ 节点6：完整闭环验证 + 电表
@@ -232,7 +232,6 @@ export const SCENE_CONFIGS = {
       'user-48',  'user-49',
     ],
     
-    meterTarget: { nodeId: 'vout' },
+    meterTarget: { nodeId: 'vl' },
   },
 }
-
