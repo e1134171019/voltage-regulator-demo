@@ -1,6 +1,24 @@
 <template>
   <section ref="runtimeShellRef" class="runtime-shell">
     <aside class="control-column">
+      <!-- Node info panel (for pages 4-9) -->
+      <div v-if="showNodeInfo && nodeInfoConfig" class="panel-card node-info-card">
+        <div class="card-head">
+          <span class="badge">{{ nodeInfoConfig.title }}</span>
+        </div>
+        <div class="node-info-content">
+          <p class="explanation">{{ nodeInfoConfig.explanation }}</p>
+          <div class="expected-value">
+            <strong>預期值:</strong>
+            <span>{{ nodeInfoConfig.expectedValue.voltage }} {{ nodeInfoConfig.expectedValue.unit }}</span>
+          </div>
+          <div class="electron-flow">
+            <strong>電子流向:</strong>
+            <span>{{ nodeInfoConfig.electronFlow?.join(' → ') }}</span>
+          </div>
+        </div>
+      </div>
+
       <div class="panel-card control-card">
         <div class="card-head">
           <span class="badge">Input</span>
@@ -394,6 +412,22 @@
 <script setup>
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { loadPublicFritzingPackages } from '../utils/fritzingRuntime.js'
+
+// Props for pedagogical filtering (used by page 4-9)
+defineProps({
+  nodeFilter: {
+    type: String,
+    default: null, // 'node1_vref', 'node2_vplus', etc.
+  },
+  nodeInfoConfig: {
+    type: Object,
+    default: null, // { title, explanation, expectedValue, electronFlow, ... }
+  },
+  showNodeInfo: {
+    type: Boolean,
+    default: false,
+  },
+})
 
 const loadingAssets = ref(true)
 const loadError = ref('')
