@@ -68,7 +68,6 @@ import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import Slide01Opening from '../components/presentation/slides/Slide01Opening.vue'
 import Slide02PhoneLoad from '../components/presentation/slides/Slide02PhoneLoad.vue'
 import Slide07CircuitOverview from '../components/presentation/slides/Slide07CircuitOverview.vue'
-import Slide10LaunchLinks from '../components/presentation/slides/Slide10LaunchLinks.vue'
 import BlankSlide from '../components/presentation/slides/BlankSlide.vue'
 import Scene03InteractiveBreadboard from '../components/scenes/Scene03InteractiveBreadboard.vue'
 import { SCENE_CONFIGS } from '../components/scenes/nodeViewerConfigs.js'
@@ -115,11 +114,9 @@ const slideList = [
       showNodeInfo: true,
     },
   },
-  { title: 'UA741 OUT：修正訊號', component: BlankSlide },
   { title: 'NPN Base：控制端與輸出調整', component: BlankSlide },
   { title: 'VL：輸出電壓量測', component: BlankSlide },
   { title: 'RL：負載變化與電流', component: BlankSlide },
-  { title: '結語', component: Slide10LaunchLinks },
 ]
 
 const totalSlides = slideList.length
