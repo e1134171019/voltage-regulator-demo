@@ -4,6 +4,71 @@
  * IDs 对应 buildDefaultRuntimeState() 中的实际 part 和 wire IDs
  */
 
+const RUNTIME_STORAGE_KEY = 'slide03-runtime-state-v2'
+
+function patchVrefDmmRedLeadInLocalStorage() {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    const raw = window.localStorage.getItem(RUNTIME_STORAGE_KEY)
+    if (!raw) {
+      return
+    }
+
+    const state = JSON.parse(raw)
+    if (!state || !Array.isArray(state.wires)) {
+      return
+    }
+
+    let changed = false
+    const replacementRedWire = state.wires.find(
+      (wire) => wire.id !== 'user-48' && wire.from === '10M' && wire.toPartPin?.partId === 'meter-16' && wire.toPartPin?.pinId === 'connector1',
+    )
+
+    state.wires = state.wires.filter((wire) => {
+      const isExtraMeterRedWire =
+        wire.id !== 'user-48' && wire.toPartPin?.partId === 'meter-16' && wire.toPartPin?.pinId === 'connector1'
+      if (isExtraMeterRedWire) {
+        changed = true
+        return false
+      }
+      return true
+    })
+
+    const redWire = state.wires.find((wire) => wire.id === 'user-48')
+    if (redWire && redWire.from !== '10M') {
+      redWire.from = '10M'
+      redWire.to = ''
+      redWire.fromPartPin = null
+      redWire.toPartPin = { partId: 'meter-16', pinId: 'connector1' }
+      redWire.via = replacementRedWire?.via ?? null
+      changed = true
+    }
+
+    if (!redWire && replacementRedWire) {
+      state.wires.push({
+        ...replacementRedWire,
+        id: 'user-48',
+        from: '10M',
+        to: '',
+        fromPartPin: null,
+        toPartPin: { partId: 'meter-16', pinId: 'connector1' },
+      })
+      changed = true
+    }
+
+    if (changed) {
+      window.localStorage.setItem(RUNTIME_STORAGE_KEY, JSON.stringify(state))
+    }
+  } catch (error) {
+    console.warn('Failed to patch Vref DMM red lead:', error)
+  }
+}
+
+patchVrefDmmRedLeadInLocalStorage()
+
 export const SCENE_CONFIGS = {
   // ① 节点1：V_Z（Zener 产生 6.2V 参考）
   node1_vref: {
@@ -17,6 +82,7 @@ export const SCENE_CONFIGS = {
       'rb-10',      // 1k 限流电阻
       'supply-14',  // +Vcc 电源
       'supply-15',  // GND 电源
+      'meter-16',   // 三用電表：讓第 4 篇可用電表實際量 Vref
     ],
     
     visibleWires: [
@@ -28,16 +94,21 @@ export const SCENE_CONFIGS = {
       'user-42',    // 1bottomBlue 连到 supply-14 (GND)
       'user-43',    // 1bottomBlue 连到 supply-15 (GND)
       'user-44',    // supply-15 (+Vcc) 连到 63topBlue
+      'user-48',    // 三用電表紅棒：10M → meter-16 connector1
+      'user-49',    // 三用電表黑棒：62bottomBlue → meter-16 connector0
     ],
     
     highlightParts: [
       'zener-1',
       'rb-10',
+      'meter-16',
     ],
     
     highlightWires: [
       'user-22',
       'user-23',
+      'user-48',
+      'user-49',
     ],
     
     meterTarget: { nodeId: 'vref' },
@@ -56,6 +127,7 @@ export const SCENE_CONFIGS = {
       'supply-14',
       'supply-15',
       'ua741-9',    // UA741 运放
+      'meter-16',   // 三用電表：讓第 5 篇可用電表實際量 UA741 腳3
     ],
     
     visibleWires: [
@@ -65,14 +137,19 @@ export const SCENE_CONFIGS = {
       'user-27',  // 23H (脚7 +Vcc) → 23topRed (+Vcc)
       'user-28',  // 27L (脚4 -Vcc) → 30L
       'user-29',  // 30L → 30topBlue (-Vcc)
+      'user-48',  // 三用電表紅棒
+      'user-49',  // 三用電表黑棒
     ],
     
     highlightParts: [
       'ua741-9',
+      'meter-16',
     ],
     
     highlightWires: [
       'user-26',
+      'user-48',
+      'user-49',
     ],
     
     meterTarget: { nodeId: 'vp' },
