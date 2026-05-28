@@ -115,7 +115,15 @@ const slideList = [
       showNodeInfo: true,
     },
   },
-  { title: 'NPN Base：控制端與輸出調整', component: BlankSlide },
+  {
+    title: 'NPN Base：UA741 OUT 驅動控制端',
+    component: Scene03InteractiveBreadboard,
+    props: {
+      nodeFilter: 'node4_out',
+      nodeInfoConfig: SCENE_CONFIGS.node4_out,
+      showNodeInfo: true,
+    },
+  },
   { title: 'VL：輸出電壓量測', component: BlankSlide },
   { title: 'RL：負載變化與電流', component: BlankSlide },
 ]
