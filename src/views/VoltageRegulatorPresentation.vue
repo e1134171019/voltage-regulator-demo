@@ -1,5 +1,5 @@
 <template>
-  <div class="presentation-container" :class="{ immersive: isImmersiveSlide }">
+  <div class="presentation-container" :class="[{ immersive: isImmersiveSlide }, activeSlide.layoutClass]">
     <!-- Main Workspace -->
     <main ref="workspaceRef" class="presentation-workspace" :class="{ immersive: isImmersiveSlide }">
       <!-- Transition wrapper for slides -->
@@ -108,6 +108,7 @@ const slideList = [
   {
     title: 'UA741 第 2 腳 V−：10kΩ 負回授比較點',
     component: Scene03InteractiveBreadboard,
+    layoutClass: 'hide-static-schematic',
     props: {
       nodeFilter: 'node3_vminus',
       nodeInfoConfig: SCENE_CONFIGS.node3_vminus,
@@ -258,6 +259,14 @@ function updateWorkspaceSize() {
 
 .presentation-container.immersive::before {
   display: none;
+}
+
+.presentation-container.hide-static-schematic :deep(.schematic-card) {
+  display: none !important;
+}
+
+.presentation-container.hide-static-schematic :deep(.lower-panel-grid) {
+  grid-template-columns: 1fr !important;
 }
 
 /* Header */
