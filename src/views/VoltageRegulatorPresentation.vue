@@ -124,8 +124,8 @@ const slideList = [
       showNodeInfo: true,
     },
   },
-  { title: 'VL：輸出電壓量測', component: BlankSlide },
-  { title: 'RL：負載變化與電流', component: BlankSlide },
+  { title: '回第三篇量測：VL 輸出電壓', component: BlankSlide },
+  { title: '回第三篇量測：RL 負載變化與電流', component: BlankSlide },
 ]
 
 const totalSlides = slideList.length
