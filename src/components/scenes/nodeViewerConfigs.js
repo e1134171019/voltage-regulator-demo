@@ -87,7 +87,6 @@ export const SCENE_CONFIGS = {
     
     visibleParts: [
       'zener-1',
-      'rb-10',
       'supply-14',
       'supply-15',
       'ua741-9',
@@ -96,7 +95,7 @@ export const SCENE_CONFIGS = {
     ],
     
     visibleWires: [
-      'user-1',   'user-2',   'user-22',  'user-23',
+      'user-1',   'user-2',
       'user-41',  'user-42',  'user-43',  'user-44',
       'user-26',  'user-27',  'user-28',  'user-29',
       'user-37',  // 40bottomBlue (V_L 输出) → 40P (10k 上端)
