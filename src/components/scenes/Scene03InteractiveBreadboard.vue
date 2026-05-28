@@ -4416,11 +4416,11 @@ function clamp(value, min, max) {
   overflow: hidden;
   padding: 18px;
   border-radius: 24px;
-  border: 1px solid rgba(0, 240, 255, 0.14);
+  border: 1px solid rgba(30, 144, 255, 0.24);
   background:
-    linear-gradient(160deg, rgba(4, 11, 28, 0.92), rgba(9, 19, 48, 0.84)),
-    radial-gradient(circle at top right, rgba(255, 79, 163, 0.12), transparent 34%);
-  box-shadow: 0 24px 54px rgba(1, 8, 22, 0.34);
+    linear-gradient(160deg, rgba(230, 245, 255, 0.95), rgba(216, 237, 255, 0.92)),
+    radial-gradient(circle at top right, rgba(255, 200, 221, 0.08), transparent 34%);
+  box-shadow: 0 8px 24px rgba(30, 100, 180, 0.12);
 }
 
 .panel-card::before {
