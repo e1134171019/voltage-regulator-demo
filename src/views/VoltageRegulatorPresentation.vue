@@ -129,7 +129,7 @@ const slideFrameStyle = computed(() => {
   const heightScale = workspaceSize.value.height / SLIDE_HEIGHT
 
   if (isImmersiveSlide.value) {
-    const scale = Math.max(widthScale, heightScale)
+    const scale = Math.max(0.16, Math.min(widthScale, heightScale))
     const scaledWidth = SLIDE_WIDTH * scale
     const scaledHeight = SLIDE_HEIGHT * scale
 
