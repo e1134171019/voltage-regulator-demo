@@ -248,12 +248,23 @@
           <div class="card-head">
             <span class="badge">Circuit</span>
             <strong>電路圖</strong>
+            <div class="schematic-tools">
+              <button class="tool-btn schematic-tool-btn" type="button" @click="zoomOutSchematic">-</button>
+              <button class="tool-btn schematic-tool-btn schematic-tool-readout" type="button" @click="resetSchematicZoom">
+                {{ schematicZoomLabel }}
+              </button>
+              <button class="tool-btn schematic-tool-btn" type="button" @click="zoomInSchematic">+</button>
+            </div>
           </div>
-          <img
-            class="schematic-image"
-            src="/voltage_reg_nodes.svg"
-            alt="定電壓電路節點量測圖"
-          />
+          <div class="schematic-viewport" @wheel.prevent="handleSchematicWheel">
+            <div class="schematic-scale-stage" :style="schematicStageStyle">
+              <img
+                class="schematic-image"
+                src="/voltage_reg_nodes.svg"
+                alt="定電壓電路節點量測圖"
+              />
+            </div>
+          </div>
         </div>
 
         <div class="panel-card explain-panel">
@@ -415,6 +426,7 @@ const wires = ref([])
 
 // Zoom and pan state
 const zoomLevel = ref(1)
+const schematicZoom = ref(1.35)
 const panX = ref(0)
 const panY = ref(0)
 const isPanning = ref(false)
@@ -1141,6 +1153,12 @@ const boardFrameStyle = computed(() => {
     aspectRatio: `${workspaceViewBox.value.width} / ${workspaceViewBox.value.height}`,
   }
 })
+
+const schematicStageStyle = computed(() => ({
+  width: `${Math.max(100, schematicZoom.value * 100)}%`,
+}))
+
+const schematicZoomLabel = computed(() => `${Math.round(schematicZoom.value * 100)}%`)
 
 const boardSvgBase = computed(() => {
   if (!boardPackage.value?.svgText) {
@@ -3051,6 +3069,31 @@ function setMeterReadMode(mode) {
   meterReadMode.value = mode
 }
 
+function setSchematicZoom(nextZoom) {
+  schematicZoom.value = Math.min(2.4, Math.max(0.8, Number(nextZoom.toFixed(2))))
+}
+
+function zoomInSchematic() {
+  setSchematicZoom(schematicZoom.value + 0.15)
+}
+
+function zoomOutSchematic() {
+  setSchematicZoom(schematicZoom.value - 0.15)
+}
+
+function resetSchematicZoom() {
+  setSchematicZoom(1.35)
+}
+
+function handleSchematicWheel(event) {
+  if (event.deltaY < 0) {
+    zoomInSchematic()
+    return
+  }
+
+  zoomOutSchematic()
+}
+
 function findPackage(fragment) {
   return packages.value.find((item) => item.moduleId.toLowerCase().includes(fragment.toLowerCase())) || null
 }
@@ -4495,15 +4538,45 @@ function clamp(value, min, max) {
   border-bottom: 1px solid rgba(148, 163, 184, 0.16);
 }
 
-.schematic-image {
+.schematic-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.schematic-tool-btn {
+  min-width: 42px;
+  padding-inline: 12px;
+}
+
+.schematic-tool-readout {
+  min-width: 76px;
+}
+
+.schematic-viewport {
   position: relative;
   z-index: 1;
-  width: 100%;
-  height: clamp(124px, 15vh, 170px);
   margin-top: 12px;
+  min-height: clamp(180px, 24vh, 280px);
+  max-height: 320px;
+  overflow: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 240, 255, 0.12);
+  background:
+    radial-gradient(circle at top, rgba(0, 240, 255, 0.05), transparent 42%),
+    rgba(4, 13, 32, 0.5);
+}
+
+.schematic-scale-stage {
+  min-width: 100%;
+  padding: 8px;
+}
+
+.schematic-image {
+  width: 100%;
   display: block;
-  object-fit: contain;
-  object-position: center;
+  height: auto;
 }
 
 .explain-grid {
