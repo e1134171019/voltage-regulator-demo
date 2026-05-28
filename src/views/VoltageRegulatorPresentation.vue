@@ -62,16 +62,9 @@ import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 
 import Slide01Opening from '../components/presentation/slides/Slide01Opening.vue'
 import Slide02PhoneLoad from '../components/presentation/slides/Slide02PhoneLoad.vue'
-import Slide03VoltageDrop from '../components/presentation/slides/Slide03VoltageDrop.vue'
-import Slide04ZenerReference from '../components/presentation/slides/Slide04ZenerReference.vue'
-import Slide05OpAmpControl from '../components/presentation/slides/Slide05OpAmpControl.vue'
-import Slide06PowerTransistor from '../components/presentation/slides/Slide06PowerTransistor.vue'
 import Slide07CircuitOverview from '../components/presentation/slides/Slide07CircuitOverview.vue'
-import Slide08ClosedLoop from '../components/presentation/slides/Slide08ClosedLoop.vue'
-import Slide09ExperimentSummary from '../components/presentation/slides/Slide09ExperimentSummary.vue'
 import Slide10LaunchLinks from '../components/presentation/slides/Slide10LaunchLinks.vue'
 import BlankSlide from '../components/presentation/slides/BlankSlide.vue'
-import SceneNodeViewer from '../components/scenes/SceneNodeViewer.vue'
 import Scene03InteractiveBreadboard from '../components/scenes/Scene03InteractiveBreadboard.vue'
 import { SCENE_CONFIGS } from '../components/scenes/nodeViewerConfigs.js'
 
@@ -220,12 +213,12 @@ function updateWorkspaceSize() {
   content: '';
   position: absolute;
   inset: 14px 10px;
-  border: 1px solid rgba(0, 240, 255, 0.08);
+  border: 1px solid rgba(14, 116, 144, 0.12);
   border-radius: 28px;
   pointer-events: none;
   box-shadow:
-    inset 0 0 0 1px rgba(255, 79, 163, 0.04),
-    0 0 80px rgba(0, 240, 255, 0.05);
+    inset 0 0 0 1px rgba(249, 115, 22, 0.08),
+    0 24px 80px rgba(15, 23, 42, 0.08);
 }
 
 .presentation-container.immersive::before {
@@ -277,11 +270,11 @@ function updateWorkspaceSize() {
   grid-template-columns: 1.2fr 2fr 1.2fr;
   align-items: center;
   padding: 16px 24px;
-  background: linear-gradient(135deg, rgba(240, 248, 255, 0.92), rgba(230, 244, 255, 0.88));
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(239, 246, 255, 0.86));
   backdrop-filter: blur(20px);
   border: 1px solid var(--nova-border);
   border-radius: 20px;
-  box-shadow: 0 -12px 30px rgba(100, 160, 200, 0.15);
+  box-shadow: 0 -12px 30px rgba(15, 23, 42, 0.08);
 }
 
 .presentation-footer.immersive {
@@ -291,8 +284,8 @@ function updateWorkspaceSize() {
 }
 
 .slide-dropdown {
-  background: rgba(240, 248, 255, 0.92);
-  border: 1px solid rgba(100, 150, 200, 0.28);
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(14, 116, 144, 0.24);
   color: var(--nova-text);
   font-weight: 700;
   font-size: 0.85rem;
@@ -302,12 +295,12 @@ function updateWorkspaceSize() {
   cursor: pointer;
   max-width: 280px;
   width: 100%;
-  box-shadow: inset 0 0 0 1px rgba(100, 150, 200, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(14, 116, 144, 0.08);
 }
 
 .slide-dropdown:focus {
   border-color: var(--nova-cyan);
-  box-shadow: 0 0 0 3px rgba(0, 240, 255, 0.14);
+  box-shadow: 0 0 0 3px rgba(14, 116, 144, 0.14);
 }
 
 /* Progress Dots */
@@ -322,21 +315,21 @@ function updateWorkspaceSize() {
   height: 10px;
   border-radius: 99px;
   border: none;
-  background: rgba(132, 171, 196, 0.45);
+  background: rgba(100, 116, 139, 0.35);
   cursor: pointer;
   padding: 0;
   transition: all 0.25s ease;
 }
 
 .dot-btn:hover {
-  background: rgba(0, 240, 255, 0.65);
+  background: rgba(2, 132, 199, 0.65);
   transform: scale(1.2);
 }
 
 .dot-btn.active {
   width: 32px;
   background: linear-gradient(90deg, var(--nova-cyan), var(--nova-pink));
-  box-shadow: 0 4px 14px rgba(0, 240, 255, 0.35);
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.24);
 }
 
 /* Navigation Buttons */
@@ -347,8 +340,8 @@ function updateWorkspaceSize() {
 }
 
 .nav-btn {
-  border: 1px solid rgba(0, 240, 255, 0.18);
-  background: rgba(4, 16, 40, 0.92);
+  border: 1px solid rgba(14, 116, 144, 0.22);
+  background: rgba(255, 255, 255, 0.92);
   color: var(--nova-text);
   font-weight: 700;
   padding: 8px 16px;
@@ -356,7 +349,7 @@ function updateWorkspaceSize() {
   cursor: pointer;
   font-size: 0.85rem;
   transition: all 0.25s ease;
-  box-shadow: inset 0 0 0 1px rgba(255, 79, 163, 0.08);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
 }
 
 .nav-btn:not(:disabled):hover {
@@ -366,14 +359,14 @@ function updateWorkspaceSize() {
 }
 
 .nav-btn.next {
-  background: linear-gradient(135deg, var(--nova-cyan) 0%, var(--nova-pink) 52%, var(--nova-violet) 100%);
-  color: #04101f;
+  background: linear-gradient(135deg, var(--nova-cyan) 0%, var(--nova-pink) 56%, var(--nova-violet) 100%);
+  color: #ffffff;
   border: none;
-  box-shadow: 0 8px 24px rgba(0, 240, 255, 0.24);
+  box-shadow: 0 10px 24px rgba(2, 132, 199, 0.24);
 }
 
 .nav-btn.next:not(:disabled):hover {
-  box-shadow: 0 12px 28px rgba(255, 79, 163, 0.3);
+  box-shadow: 0 12px 28px rgba(249, 115, 22, 0.26);
   transform: translateY(-2px);
 }
 
@@ -389,7 +382,7 @@ function updateWorkspaceSize() {
   left: 0;
   width: 100%;
   height: 4px;
-  background: rgba(132, 171, 196, 0.12);
+  background: rgba(100, 116, 139, 0.16);
   z-index: 1000;
 }
 
@@ -397,7 +390,7 @@ function updateWorkspaceSize() {
   height: 100%;
   background: linear-gradient(90deg, var(--nova-cyan), var(--nova-pink), var(--nova-violet));
   transition: width 0.3s ease;
-  box-shadow: 0 1px 10px rgba(0, 240, 255, 0.42);
+  box-shadow: 0 1px 10px rgba(2, 132, 199, 0.28);
 }
 
 /* Transitions: Slide Fade */
