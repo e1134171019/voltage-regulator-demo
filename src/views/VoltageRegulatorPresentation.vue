@@ -98,7 +98,7 @@ const slideList = [
     },
   },
   {
-    title: 'V+：UA741 同相輸入',
+    title: 'UA741 第 3 腳 V+：接收 Vref',
     component: Scene03InteractiveBreadboard,
     props: {
       nodeFilter: 'node2_vplus',
@@ -106,7 +106,15 @@ const slideList = [
       showNodeInfo: true,
     },
   },
-  { title: 'V−：UA741 反相輸入', component: BlankSlide },
+  {
+    title: 'UA741 第 2 腳 V−：10kΩ 負回授比較點',
+    component: Scene03InteractiveBreadboard,
+    props: {
+      nodeFilter: 'node3_vminus',
+      nodeInfoConfig: SCENE_CONFIGS.node3_vminus,
+      showNodeInfo: true,
+    },
+  },
   { title: 'UA741 OUT：修正訊號', component: BlankSlide },
   { title: 'NPN Base：控制端與輸出調整', component: BlankSlide },
   { title: 'VL：輸出電壓量測', component: BlankSlide },
