@@ -17,6 +17,7 @@ export const SCENE_CONFIGS = {
       'rb-10',      // 1k 限流电阻
       'supply-14',  // +Vcc 电源
       'supply-15',  // GND 电源
+      'meter-16',   // 三用電表：讓第 4 篇可用電表實際量 Vref
     ],
     
     visibleWires: [
@@ -28,16 +29,21 @@ export const SCENE_CONFIGS = {
       'user-42',    // 1bottomBlue 连到 supply-14 (GND)
       'user-43',    // 1bottomBlue 连到 supply-15 (GND)
       'user-44',    // supply-15 (+Vcc) 连到 63topBlue
+      'user-48',    // 三用電表紅棒
+      'user-49',    // 三用電表黑棒
     ],
     
     highlightParts: [
       'zener-1',
       'rb-10',
+      'meter-16',
     ],
     
     highlightWires: [
       'user-22',
       'user-23',
+      'user-48',
+      'user-49',
     ],
     
     meterTarget: { nodeId: 'vref' },
