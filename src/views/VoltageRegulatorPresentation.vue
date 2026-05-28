@@ -70,7 +70,6 @@ import Slide02PhoneLoad from '../components/presentation/slides/Slide02PhoneLoad
 import Slide07CircuitOverview from '../components/presentation/slides/Slide07CircuitOverview.vue'
 import BlankSlide from '../components/presentation/slides/BlankSlide.vue'
 import Scene03InteractiveBreadboard from '../components/scenes/Scene03InteractiveBreadboard.vue'
-import Scene04VrefBreadboard from '../components/scenes/Scene04VrefBreadboard.vue'
 import { SCENE_CONFIGS } from '../components/scenes/nodeViewerConfigs.js'
 
 const currentSlide = ref(0)
@@ -90,7 +89,7 @@ const slideList = [
   { title: '完整定電壓電路總覽', component: Slide07CircuitOverview },
   {
     title: 'Vref：電壓參考',
-    component: Scene04VrefBreadboard,
+    component: Scene03InteractiveBreadboard,
     props: {
       nodeFilter: 'node1_vref',
       nodeInfoConfig: SCENE_CONFIGS.node1_vref,
