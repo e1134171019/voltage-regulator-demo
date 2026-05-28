@@ -115,12 +115,12 @@ export const SCENE_CONFIGS = {
     meterTarget: { nodeId: 'vm' },
   },
 
-  // ④ 节点4：OUT（UA741 脚6 输出信号）
+  // ④ 节点4：OUT 驱动 NPN Base，同时 C 极接回正电位
   node4_out: {
-    title: '④ 節點 4 — μA741 腳6 OUT',
-    explanation: '接上 BJT，運放腳6 輸出驅動基極。預期 ≈ V_L + V_BE ≈ 6.8V（對 GND）。',
+    title: '④ 節點 4 — UA741 OUT 驅動 NPN Base',
+    explanation: '接上 BJT，UA741 腳6 輸出驅動 NPN Base；同時 C 極接回 +Vcc，讓 BJT 具備可被控制的電流路徑。',
     expectedValue: { voltage: '≈ 6.8', unit: 'V' },
-    electronFlow: ['UA741 腳6', '→', '2SC1384 基極'],
+    electronFlow: ['+Vcc', '→', 'NPN C', '；UA741 OUT', '→', 'NPN B'],
     
     visibleParts: [
       'zener-1',
@@ -138,8 +138,10 @@ export const SCENE_CONFIGS = {
       'user-41',  'user-42',  'user-43',  'user-44',
       'user-26',  'user-27',  'user-28',  'user-29',
       'user-37',  'user-38',  'user-39',  'user-40',
-      'user-31',  // 25H (脚6 OUT) → 44G (BJT 集极)
-      'user-32',  // 42G (BJT 基极) → 43I
+      'user-31',  // UA741 OUT → NPN Base
+      'user-32',  // NPN C → collector supply path start
+      'user-33',  // collector supply path continuation
+      'user-34',  // collector path → topRed (+Vcc)
     ],
     
     highlightParts: [
@@ -147,7 +149,7 @@ export const SCENE_CONFIGS = {
     ],
     
     highlightWires: [
-      'user-31',  'user-32',
+      'user-31',  'user-32',  'user-33',  'user-34',
     ],
     
     meterTarget: { nodeId: 'out741' },
