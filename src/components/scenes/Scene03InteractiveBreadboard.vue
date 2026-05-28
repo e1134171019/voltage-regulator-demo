@@ -2309,10 +2309,8 @@ onMounted(async () => {
   try {
     loadingAssets.value = true
     packages.value = await loadPublicFritzingPackages()
-    if (!restorePersistedRuntimeState()) {
-      resetPlacements()
-      restoreBuiltInDefaultRuntimeState()
-    }
+    resetPlacements()
+    restoreBuiltInDefaultRuntimeState()
     window.addEventListener('keydown', handleKeyDown, true)
     window.addEventListener('contextmenu', handleRuntimeContextMenu)
   } catch (error) {
