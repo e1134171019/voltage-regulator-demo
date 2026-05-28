@@ -111,7 +111,11 @@
                 v-for="wire in renderedWires"
                 :key="wire.id"
                 class="runtime-wire"
-                :class="{ selected: selectedWireId === wire.id, sameNet: sameNetWireIds.has(wire.id) }"
+                :class="{
+                  selected: selectedWireId === wire.id,
+                  sameNet: sameNetWireIds.has(wire.id),
+                  highlighted: wire.pedagogicalHighlight,
+                }"
                 :d="wire.path"
                 :stroke="wire.color"
                 :stroke-width="wire.width"
@@ -205,7 +209,11 @@
                 v-for="part in renderedParts"
                 :key="part.id"
                 class="part-group"
-                :class="{ selected: selectedPartId === part.id, dragging: dragState?.partId === part.id }"
+                :class="{
+                  selected: selectedPartId === part.id,
+                  dragging: dragState?.partId === part.id,
+                  highlighted: part.pedagogicalHighlight,
+                }"
                 :transform="matrixToString(part.displayTransform)"
                 @pointerdown="startPartDrag($event, part.id)"
                 @contextmenu.stop.prevent="openPartContextMenu($event, part.id)"
@@ -414,7 +422,7 @@ import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { loadPublicFritzingPackages } from '../utils/fritzingRuntime.js'
 
 // Props for pedagogical filtering (used by page 4-9)
-defineProps({
+const props = defineProps({
   nodeFilter: {
     type: String,
     default: null, // 'node1_vref', 'node2_vplus', etc.
@@ -1235,6 +1243,26 @@ const partInstanceCounts = computed(() => {
   return counts
 })
 
+const pedagogicalVisiblePartIds = computed(() => {
+  const ids = props.nodeInfoConfig?.visibleParts
+  return props.nodeFilter && Array.isArray(ids) && ids.length ? new Set(ids) : null
+})
+
+const pedagogicalVisibleWireIds = computed(() => {
+  const ids = props.nodeInfoConfig?.visibleWires
+  return props.nodeFilter && Array.isArray(ids) && ids.length ? new Set(ids) : null
+})
+
+const pedagogicalHighlightPartIds = computed(() => {
+  const ids = props.nodeInfoConfig?.highlightParts
+  return props.nodeFilter && Array.isArray(ids) && ids.length ? new Set(ids) : null
+})
+
+const pedagogicalHighlightWireIds = computed(() => {
+  const ids = props.nodeInfoConfig?.highlightWires
+  return props.nodeFilter && Array.isArray(ids) && ids.length ? new Set(ids) : null
+})
+
 const placedParts = computed(() => {
   return Object.entries(partPlacements)
     .map(([instanceId, record]) => {
@@ -1254,6 +1282,13 @@ const placedParts = computed(() => {
       }
     })
     .filter(Boolean)
+    .filter((part) => {
+      if (!pedagogicalVisiblePartIds.value) {
+        return true
+      }
+
+      return pedagogicalVisiblePartIds.value.has(part.id)
+    })
 })
 
 const renderedParts = computed(() => {
@@ -1289,6 +1324,7 @@ const renderedParts = computed(() => {
       baseTransform,
       displayTransform,
       connectorStatus,
+      pedagogicalHighlight: pedagogicalHighlightPartIds.value?.has(part.id) || false,
     }
   })
 })
@@ -2037,6 +2073,13 @@ const pendingWireAnchor = computed(() => {
 
 const renderedWires = computed(() => {
   return wires.value
+    .filter((wire) => {
+      if (!pedagogicalVisibleWireIds.value) {
+        return true
+      }
+
+      return pedagogicalVisibleWireIds.value.has(wire.id)
+    })
     .map((wire) => {
       const start = getWireEndpointPoint(wire, 'from')
       const end = getWireEndpointPoint(wire, 'to')
@@ -2050,6 +2093,7 @@ const renderedWires = computed(() => {
         end,
         points: wire.via ? [start, wire.via, end] : [start, end],
         path: routedWirePath(start, end, wire.via),
+        pedagogicalHighlight: pedagogicalHighlightWireIds.value?.has(wire.id) || false,
       }
     })
     .filter(Boolean)
