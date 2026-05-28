@@ -31,11 +31,11 @@ import openingVisual from '../../../../46faf0f1-dc28-4f71-a8ec-72fb0e94d456.png'
 
 h2 {
   margin: 0;
-  color: #d9f7ff;
+  color: #10233f;
   font-size: clamp(2rem, 4vw, 3.2rem);
   line-height: 1.05;
   text-align: left;
-  text-shadow: 0 0 18px rgba(0, 240, 255, 0.22);
+  text-shadow: 0 2px 16px rgba(255, 255, 255, 0.42);
 }
 
 .image-frame {
@@ -43,9 +43,9 @@ h2 {
   min-height: 0;
   padding: 14px;
   border-radius: 28px;
-  background: rgba(7, 16, 36, 0.72);
-  border: 1px solid rgba(0, 240, 255, 0.18);
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+  background: rgba(51, 65, 85, 0.72);
+  border: 1px solid rgba(226, 232, 240, 0.28);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
